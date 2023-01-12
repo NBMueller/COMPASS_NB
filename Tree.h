@@ -8,7 +8,7 @@
 #include "Node.h"
 #include "Structures.h"
 
-class Tree{
+class Tree {
     private:
         // Tree structure
         bool use_CNV;
@@ -21,7 +21,7 @@ class Tree{
 
         // Parameters
         std::vector<double> node_probabilities; //prior attachment probabilities to each node.
-        std::vector<double> dropout_rates; // dropout rate for each locus.
+        //std::vector<double> dropout_rates; // dropout rate for each locus.
         std::vector<double> dropout_rates_ref; // dropout rate of the reference allele
         std::vector<double> dropout_rates_alt; // dropout rate of the alternative allele
         std::vector<double> region_probabilities; // probability for a read to fall on each region, when there are 2 copies of each region
@@ -40,12 +40,12 @@ class Tree{
         double avg_diff_nodeprob; // how much the node probabilities changed between 2 iterations of the EM algorithm
         double avg_diff_dropoutrates; // how much the dropout rates changed between 2 iterations of the EM algorithm
 
-
     public:
         double hastings_ratio; // probability to move from previous tree to this tree / probability to move from this tree to the previous tree
         double log_prior_score;
         double log_likelihood;
         double log_score; //complete score of the tree, including the prior and the likelihood
+        std::vector<double> dropout_rates; // dropout rate for each locus.
 
         Tree(Scores* cache, bool use_CNV); // constructor
         Tree(); // empty constructor
@@ -57,33 +57,28 @@ class Tree{
         void compute_children(); // compute the list of children of each node, from the parent vector. Also compute the DFT order
         void compute_nodes_genotypes(); // update the genotypes of the nodes below the node given in argument. (maybe just give node index as argument...)
         
-        
-
         bool is_ancestor(int potential_ancestor, int potential_descendant); 
         bool rec_check_max_one_event_per_region_per_lineage(int node, std::vector<int> n_CNV_in_region);
-
 
         void compute_attachment_scores(bool use_doublets_local);
         void compute_likelihood(bool allow_diff_dropoutrates=true);
         void compute_prior_score();
         void update_full_score();
 
-
         //utils for computing likelihood
         void compute_cells_likelihoods(bool use_doublets_local); //update the vectors cells_attach_loglik and cells_loglik
-        void compute_cells_likelihoods_singlets();
-        void compute_cells_likelihoods_doublets();
-        std::vector<std::vector<double>> get_cells_likelihoods_doublets();
+        // void compute_cells_likelihoods_singlets();
+        // void compute_cells_likelihoods_doublets();
+        // std::vector<std::vector<double>> get_cells_likelihoods_doublets();
         void EM_step(bool use_doublets_local, bool allow_diff_dropoutrates); // compute the attachment probabilities of each cell (E step) and update the node probabilities and dropout rates (M step)
-
 
         void to_dot(std::string filename); //save the tree structure to the dot format (for visualization)
         void to_dot_pretty(std::string filename); //save the tree structure to the dot format (for visualization)
 
         void find_CNV();
-        void allow_CNV(){use_CNV=true;}
+        void allow_CNV(){use_CNV = true;}
         bool select_regions(int index=-1);
-        bool contains_candidate_regions(){return candidate_regions.size()>0;}
+        bool contains_candidate_regions(){return candidate_regions.size() > 0;}
 
         //MCMC moves
         void add_node (int parent); // Add a node below an existing one, and randomly assign the children of the parent to the new node or their initial parent
@@ -102,7 +97,6 @@ class Tree{
         void change_alleles_CNV();
 
         double get_regionprobs_variance();
-        
 };
 
 #endif

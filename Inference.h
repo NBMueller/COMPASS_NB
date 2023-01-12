@@ -18,12 +18,12 @@ class Inference{
         int index; // to identify the different chains that are run in parallel
         
     public:
-        Inference(std::string name="best_tree.gv", double temperature=10.0,int index=-1);
+        Inference(std::string name="best_tree.gv", double temperature=10.0, int index=-1); // constructor
+        Inference(std::string start_tree, std::string name="best_tree.gv", double temperature=10.0, int index=-1); // constructor
         ~Inference();
         Tree find_best_tree(bool use_CNV=true,int nb_steps=5000, int burn_in=1000);
         void mcmc(bool use_CNV, int nb_steps, int burn_in=1000);
         int select_move(int max_move_index);
-
 };
 
 #endif

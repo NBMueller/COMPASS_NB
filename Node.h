@@ -12,12 +12,12 @@ class Node {
     private: 
         std::vector<int> mutations; //somatic mutations always transform from ref to alt. 
 
-        std::multiset<std::pair<int,std::vector<int>>> CNLOH_events; // pairs (region_index, lost_alleles) 
+        std::multiset<std::pair<int, std::vector<int>>> CNLOH_events; // pairs (region_index, lost_alleles)
         // lost_alleles is a vector, where a 0 (resp 1) at position i indicates that at the i-th locus in that region, 
         // a copy of the ref (resp alt) allele is lost and a copy of the other allele is gained
         // I use an (ordered) set, with the default (lexicographic) order, which here sorts the events by position.
 
-        std::multiset<std::tuple<int,int,std::vector<int>>> CNV_events; // triplet (region_index,gain/loss,affected alleles)
+        std::multiset<std::tuple<int, int, std::vector<int>>> CNV_events; // triplet (region_index,gain/loss,affected alleles)
         // the second element is +1 in case of copy number gain, -1 in case of copy number loss
         // the third element is a vector of length the number of loci in this region (potentially 0), 
         // and it contains 0 if the ref allele is deleted/duplicated, or 1 for the alt allele
@@ -52,7 +52,7 @@ class Node {
                                         const std::vector<double>& dropout_rates_alt,const std::vector<double>& region_probabilities);
 
         // MCMC moves for the nodes
-        void add_mutation(int locus){mutations.push_back(locus);}
+        void add_mutation(int locus) {mutations.push_back(locus);}
         int remove_random_mutation(); // removes a random mutation, and return the index of the mutation
         void add_CNLOH(std::pair<int,std::vector<int>> CNLOH){CNLOH_events.insert(CNLOH);}
         std::pair<int,std::vector<int>> remove_random_CNLOH();

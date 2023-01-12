@@ -17,12 +17,13 @@ extern Data data;
 extern Params parameters;
 
 
-Node::Node(Scores* cache){
+Node::Node(Scores* cache) {
     cache_scores = cache;
     init_structures();
 }
 
-Node::Node(Node& source){
+
+Node::Node(Node& source) {
     //copy constructor
     mutations = source.mutations;
     CNLOH_events = source.CNLOH_events;
@@ -37,16 +38,15 @@ Node::Node(Node& source){
     attachment_scores = source.attachment_scores;
 
     cache_scores = source.cache_scores;
-
-    
 }
 
-Node::Node(Node& source1, Node& source2){
+
+Node::Node(Node& source1, Node& source2) {
     // Create a doublet from 2 nodes
     init_structures();
     cache_scores = source1.cache_scores;
 
-    for (int i=0;i<n_loci;i++){
+    for (int i = 0; i < n_loci; i++) {
         // number of allele copies is the sum of the number of allele copies of the 2 nodes.
         n_ref_allele[i] = source1.n_ref_allele[i] + source2.n_ref_allele[i];
         n_alt_allele[i] = source1.n_alt_allele[i] + source2.n_alt_allele[i];
@@ -56,20 +56,24 @@ Node::Node(Node& source1, Node& source2){
         else n_ref_allele[i] = source2.n_ref_allele[i];
         if (source1.n_alt_allele[i]>source2.n_alt_allele[i]) n_alt_allele[i] = source1.n_alt_allele[i];
         else n_alt_allele[i] = source2.n_alt_allele[i];*/
-        if (source1.n_ref_allele[i]>0 || source2.n_ref_allele[i]>0) n_ref_allele[i] = 1;
-        if (source1.n_alt_allele[i]>0 || source2.n_alt_allele[i]>0) n_alt_allele[i] = 1;
+        if (source1.n_ref_allele[i] > 0 || source2.n_ref_allele[i] > 0) {
+            n_ref_allele[i] = 1;
+        }
+        if (source1.n_alt_allele[i] > 0 || source2.n_alt_allele[i] > 0) {
+            n_alt_allele[i] = 1;
+        }
         //if (n_ref_allele[i]>1) n_ref_allele[i]=1;
         //if (n_alt_allele[i]>1) n_alt_allele[i]=1;
     }
     affected_loci = source2.affected_loci;
-    for (int i=0;i<n_regions;i++){
-        cn_regions[i] = (source1.cn_regions[i]+source2.cn_regions[i])/2;
+    for (int i = 0; i < n_regions; i++) {
+        cn_regions[i] = (source1.cn_regions[i] + source2.cn_regions[i]) / 2;
     }
     affected_regions = source2.affected_regions;
 }
 
 
-void Node::init_structures(){
+void Node::init_structures() {
     n_ref_allele.resize(n_loci);
     n_alt_allele.resize(n_loci);
     cn_regions.resize(n_regions);
@@ -77,33 +81,38 @@ void Node::init_structures(){
     attachment_scores.resize(n_cells);
 }
 
-Node::~Node(){
+
+Node::~Node() {
 }
 
-void Node::update_genotype(Node* parent){
+
+void Node::update_genotype(Node* parent) {
 
     // 1. Initialize with the parent genotype.
-    if (parent==nullptr){
+    if (parent == nullptr) {
         // Start from diploid homozygous reference (except X chromosome for males)
-        for (int i=0;i<n_loci;i++){
-            if (data.locus_to_chromosome.size()>0 && data.locus_to_chromosome[i]=="X" && data.sex == "male") n_ref_allele[i]= 1;
-            else n_ref_allele[i] = 2;
+        for (int i = 0; i < n_loci; i++) {
+            if (data.locus_to_chromosome.size() > 0 && data.locus_to_chromosome[i] == "X" && data.sex == "male") {
+                n_ref_allele[i]= 1;
+            } else {
+                n_ref_allele[i] = 2;
+            }
             n_alt_allele[i] = 0;
-            
         }
-        for (int k=0;k<n_regions;k++){
-            if (data.region_to_chromosome.size()>0 && data.region_to_chromosome[k]=="X" && data.sex=="male") cn_regions[k]=1;
-            else cn_regions[k] = 2;
+        for (int k = 0; k < n_regions; k++) {
+            if (data.region_to_chromosome.size() > 0 && data.region_to_chromosome[k] == "X" && data.sex == "male") {
+                cn_regions[k]=1;
+            } else {
+                cn_regions[k] = 2;
+            }
         }
-        
-    }
-    else{
-        for (int i=0;i<n_loci;i++){
-            n_ref_allele[i] = parent->n_ref_allele[i];
-            n_alt_allele[i] = parent->n_alt_allele[i];
+    } else {
+        for (int i = 0; i < n_loci; i++) {
+            n_ref_allele[i] = parent -> n_ref_allele[i];
+            n_alt_allele[i] = parent -> n_alt_allele[i];
         }
-        for (int i=0;i<n_regions;i++){
-            cn_regions[i] = parent->cn_regions[i];
+        for (int i = 0; i < n_regions; i++){
+            cn_regions[i] = parent -> cn_regions[i];
         }
         
     }
@@ -112,39 +121,40 @@ void Node::update_genotype(Node* parent){
     affected_regions.clear();
 
     // 2.1. Mutations
-    for (const int& mutated_locus: mutations){
+    // for (const int& mutated_locus: mutations) {
+    for (int i = 0; i < mutations.size(); i++) {
+        int mutated_locus = mutations[i];
         //somatic mutation: go from ref to alt
-        if (n_ref_allele[mutated_locus]>=1){
-            n_ref_allele[mutated_locus]-=1;
-            n_alt_allele[mutated_locus]+=1;
+        if (n_ref_allele[mutated_locus] >= 1) {
+            n_ref_allele[mutated_locus] -= 1;
+            n_alt_allele[mutated_locus] += 1;
             affected_loci.insert(mutated_locus);
         }
     }
+
     // 2.2. CN-LOH
-    for (const std::pair<int,std::vector<int>>& CNLOH: CNLOH_events){
+    for (const std::pair<int, std::vector<int>>& CNLOH: CNLOH_events) {
         int region = CNLOH.first;
-        for (int i=0;i<CNLOH.second.size();i++){
+        for (int i = 0; i < CNLOH.second.size(); i++) {
             int locus = data.region_to_loci[region][i];
-            if (n_ref_allele[locus]>0 && n_alt_allele[locus]>0){ // must be heterozygous to have a CN-LOH event
-            affected_loci.insert(locus);
-            if (CNLOH.second[i]==0){ // Lose the ref allele
-                n_ref_allele[locus]--;
-                n_alt_allele[locus]++;
+            // must be heterozygous to have a CN-LOH event
+            if (n_ref_allele[locus] > 0 && n_alt_allele[locus] > 0) {
+                affected_loci.insert(locus);
+                if (CNLOH.second[i] == 0) { // Lose the ref allele
+                    n_ref_allele[locus]--;
+                    n_alt_allele[locus]++;
+                } else { // Lose the alt allele
+                    n_ref_allele[locus]++;
+                    n_alt_allele[locus]--;
+                }
             }
-            else{ // Lose the alt allele
-                n_ref_allele[locus]++;
-                n_alt_allele[locus]--;
-            }
+            // don't do anything special if we have a CN-LOH event but were already homozygous.
         }
-        // don't do anything special if we have a CN-LOH event but were already homozygous.
-        }
-        
     }
     // 2.3. CNV
-
     // If a CNV affects an allele not present, change the affected allele
-    std::vector<std::tuple<int,int,std::vector<int>>> CNVs_to_remove{};
-    std::vector<std::tuple<int,int,std::vector<int>>> CNVs_to_add{};
+    std::vector<std::tuple<int, int, std::vector<int>>> CNVs_to_remove{};
+    std::vector<std::tuple<int, int, std::vector<int>>> CNVs_to_add{};
     for (auto CNV: CNV_events){
         int region = std::get<0>(CNV);
         bool valid=true;
@@ -167,26 +177,33 @@ void Node::update_genotype(Node* parent){
         }
     }
 
-    for (auto CNV: CNVs_to_remove) remove_CNV(CNV);
-    for (auto CNV: CNVs_to_add) add_CNV(CNV);
-
-
-
+    for (auto CNV: CNVs_to_remove) {
+        remove_CNV(CNV);
+    }
+    for (auto CNV: CNVs_to_add) {
+        add_CNV(CNV);
+    }
 
     all_CNV_events_valid = true;
-    for (const std::tuple<int,int,std::vector<int>> CNV: CNV_events){
+    for (const std::tuple<int, int, std::vector<int>> CNV: CNV_events) {
         int region = std::get<0>(CNV);
         int gain_loss = std::get<1>(CNV);
         const std::vector<int>& alleles = std::get<2>(CNV);
-        if (parameters.verbose) std::cout<<"CNV"<<gain_loss<<" in " <<data.region_to_name[region]<<std::endl;
+        if (parameters.verbose) {
+            std::cout << "CNV" << gain_loss << " in " << data.region_to_name[region] << std::endl;
+        }
         affected_regions.insert(region);
 
         // Check that the CNV is valid (region ends up with a copy number in {1,2,3} and affected alleles have copy number >0)
-        bool valid_CNV=(cn_regions[region]+gain_loss>=1 & cn_regions[region]+gain_loss<=3);
-        for (int i=0;i<data.region_to_loci[region].size();i++){
+        bool valid_CNV = (cn_regions[region] + gain_loss >= 1 & cn_regions[region] + gain_loss <= 3);
+        for (int i = 0; i < data.region_to_loci[region].size(); i++) {
             int locus = data.region_to_loci[region][i];
-            if (alleles[i]==0 && n_ref_allele[locus]==0) valid_CNV=false;
-            if (alleles[i]==1 && n_alt_allele[locus]==0) valid_CNV=false;
+            if (alleles[i] == 0 && n_ref_allele[locus] == 0) {
+                valid_CNV=false;
+            }
+            if (alleles[i] == 1 && n_alt_allele[locus] == 0) {
+                valid_CNV=false;
+            }
         }
         // check that the CNV is among the candidate CNVs.
         /*bool CNV_in_candidates=false;
@@ -195,62 +212,95 @@ void Node::update_genotype(Node* parent){
 
         // Apply the CNV
         if (valid_CNV) {
-            cn_regions[region]+=gain_loss;
-            for (int i=0;i<data.region_to_loci[region].size();i++){
+            cn_regions[region] += gain_loss;
+            for (int i = 0; i < data.region_to_loci[region].size(); i++) {
                 affected_loci.insert(data.region_to_loci[region][i]);
                 int locus = data.region_to_loci[region][i];
-                if (alleles[i]==0) n_ref_allele[locus]+=gain_loss;
-                else if (alleles[i]==1) n_alt_allele[locus]+=gain_loss;
+                if (alleles[i] == 0) {
+                    n_ref_allele[locus] += gain_loss;
+                } else if (alleles[i] == 1) {
+                    n_alt_allele[locus]+=gain_loss;
+                }
             }   
-        }
-        else{
+        } else {
             all_CNV_events_valid = false;
         }
     }
 }
 
-void Node::compute_attachment_scores(bool use_CNV,const std::vector<double>& dropout_rates_ref,
-                        const std::vector<double>& dropout_rates_alt, const std::vector<double>& region_probabilities){
+
+void Node::compute_attachment_scores(bool use_CNV,
+            const std::vector<double>& dropout_rates_ref,
+            const std::vector<double>& dropout_rates_alt,
+            const std::vector<double>& region_probabilities) {
     // Compute the attachment score of a cell to a node, starting from scratch (for the root).
-    for (int j=0;j<n_cells;j++) attachment_scores[j]=0;
+    for (int j = 0; j < n_cells; j++) {
+        attachment_scores[j] = 0;
+    }
     
     std::vector<double> temp_scores{};
-    for (int i=0; i<n_loci;i++){
-        temp_scores = cache_scores->compute_SNV_loglikelihoods(n_ref_allele[i],n_alt_allele[i],i,dropout_rates_ref[i],dropout_rates_alt[i]);
-        for (int j=0;j<n_cells;j++) attachment_scores[j]+=temp_scores[j];
+    for (int i = 0; i < n_loci; i++) {
+        temp_scores = cache_scores->compute_SNV_loglikelihoods(n_ref_allele[i],
+            n_alt_allele[i], i, dropout_rates_ref[i], dropout_rates_alt[i]);
+        for (int j = 0; j < n_cells; j++){
+            attachment_scores[j] += temp_scores[j];
+        }
     }
 
     // No CNV at the root allowed, so now need to compute CNV scores at the root (constant offset)
 }
 
-void Node::compute_attachment_scores_parent(bool use_CNV, Node* parent,const std::vector<double>& dropout_rates_ref,
-                            const std::vector<double>& dropout_rates_alt, const std::vector<double>& region_probabilities){
+
+void Node::compute_attachment_scores_parent(bool use_CNV,
+            Node* parent,
+            const std::vector<double>& dropout_rates_ref,
+            const std::vector<double>& dropout_rates_alt,
+            const std::vector<double>& region_probabilities) {
     // Compute the attachment score of a cell to a node, starting from the attachment score of the cell to the parent of the current node.
     // Only update the score for loci and regions where the genotype differs from the parent.
     attachment_scores = parent->attachment_scores;
     std::vector<double> temp_scores{};
-    for (int i: affected_loci){
-        temp_scores = cache_scores->compute_SNV_loglikelihoods(parent->n_ref_allele[i],parent->n_alt_allele[i],i,dropout_rates_ref[i],dropout_rates_alt[i]);
-        for (int j=0;j<n_cells;j++) attachment_scores[j]-=temp_scores[j];
-        temp_scores = cache_scores->compute_SNV_loglikelihoods(n_ref_allele[i],n_alt_allele[i],i,dropout_rates_ref[i],dropout_rates_alt[i]);
-                                                        
-        for (int j=0;j<n_cells;j++) attachment_scores[j]+=temp_scores[j];
+    for (int i: affected_loci) {
+        temp_scores = cache_scores->compute_SNV_loglikelihoods(
+            parent->n_ref_allele[i],
+            parent->n_alt_allele[i],
+            i,
+            dropout_rates_ref[i],
+            dropout_rates_alt[i]);
+        for (int j = 0; j < n_cells; j++) {
+            attachment_scores[j] -= temp_scores[j];
+        }
+        temp_scores = cache_scores->compute_SNV_loglikelihoods(
+            n_ref_allele[i],
+            n_alt_allele[i],
+            i,
+            dropout_rates_ref[i],
+            dropout_rates_alt[i]);
+        for (int j = 0; j < n_cells; j++) {
+            attachment_scores[j] += temp_scores[j];
+        }
     }
    
     if (use_CNV){
-        for (int k: affected_regions){
-            if (data.region_is_reliable[k]){
-                temp_scores = cache_scores->compute_CNV_loglikelihoods(k,region_probabilities[k] * parent->cn_regions[k]/2.0);
-                for (int j=0;j<n_cells;j++) attachment_scores[j]-=temp_scores[j];
-                temp_scores = cache_scores->compute_CNV_loglikelihoods(k,region_probabilities[k] * cn_regions[k]/2.0);
-                for (int j=0;j<n_cells;j++) attachment_scores[j]+=temp_scores[j];
+        for (int k: affected_regions) {
+            if (data.region_is_reliable[k]) {
+                temp_scores = cache_scores->compute_CNV_loglikelihoods(
+                    k, region_probabilities[k] * parent->cn_regions[k]/2.0);
+                for (int j = 0; j < n_cells; j++) {
+                    attachment_scores[j]-=temp_scores[j];
+                }
+                temp_scores = cache_scores->compute_CNV_loglikelihoods(
+                    k,region_probabilities[k] * cn_regions[k]/2.0);
+                for (int j = 0; j < n_cells; j++) {
+                    attachment_scores[j]+=temp_scores[j];
+                }
             }
         }
     }
 }
 
 
-int Node::remove_random_mutation(){
+int Node::remove_random_mutation() {
     // Randomly remove one of the mutations and return it
     // This method should only be called if the node has at least one somatic mutation.
     int idx = std::rand()%mutations.size();
@@ -259,7 +309,8 @@ int Node::remove_random_mutation(){
     return mutation;
 }
 
-std::pair<int,std::vector<int>> Node::remove_random_CNLOH(){
+
+std::pair<int,std::vector<int>> Node::remove_random_CNLOH() {
     // Randomly remove one of the existing CNLOH events and return it. 
     // This method should only be called if the node has at least one CNLOH event.
     int index_to_remove = std::rand()%CNLOH_events.size();
@@ -269,7 +320,7 @@ std::pair<int,std::vector<int>> Node::remove_random_CNLOH(){
 }
 
 
-std::tuple<int,int,std::vector<int>> Node::remove_random_CNV(){
+std::tuple<int,int,std::vector<int>> Node::remove_random_CNV() {
     // Randomly remove one of the existing CNV events and return it. 
     // This method should only be called if the node has at least one CNV event.
     int index_to_remove = std::rand()%CNV_events.size();
@@ -278,7 +329,8 @@ std::tuple<int,int,std::vector<int>> Node::remove_random_CNV(){
     return event;
 }
 
-void Node::remove_CNVs_in_region(int region){
+
+void Node::remove_CNVs_in_region(int region) {
     // Remove the CNVs affecting this region, if there are any.
     std::vector<std::tuple<int,int,std::vector<int>>> CNVs_to_delete{};
     for (auto CNV: CNV_events){
@@ -289,7 +341,8 @@ void Node::remove_CNVs_in_region(int region){
     }
 }
 
-double Node::exchange_CNV_CNLOH(std::vector<int> candidate_regions){
+
+double Node::exchange_CNV_CNLOH(std::vector<int> candidate_regions) {
     double hastings_ratio=1.0;
     
     std::multiset<std::pair<int,std::vector<int>>> CNLOH_events_exchangeable{}; // CNLOH events in a region that is allowed to contain a CNV
@@ -334,7 +387,8 @@ double Node::exchange_CNV_CNLOH(std::vector<int> candidate_regions){
     return hastings_ratio;
 }
 
-void Node::change_alleles_CNV(){
+
+void Node::change_alleles_CNV() {
     // For a CNV event, change which alleles are lost or amplified.
     
     // Choose one CNV event affecting a region which contains variants
@@ -368,8 +422,7 @@ void Node::change_alleles_CNV(){
 }
 
 
-
-int Node::get_number_disjoint_CNLOH(){
+int Node::get_number_disjoint_CNLOH() {
     int count=0;
     int lastpos=-10;
     for (std::pair<int,std::vector<int>> CNLOH:CNLOH_events){
@@ -390,7 +443,8 @@ int Node::get_number_disjoint_CNLOH(){
     return count;
 }
 
-int Node::get_number_disjoint_CNV(std::vector<int> regions_successor){
+
+int Node::get_number_disjoint_CNV(std::vector<int> regions_successor) {
     // Several events count as one if:
     // - they are adjacent (in the list of regions)
     // - they are on the same chromosome
@@ -410,7 +464,8 @@ int Node::get_number_disjoint_CNV(std::vector<int> regions_successor){
     return count;
 }
 
-int Node::get_number_disjoint_CNV_LOH(std::vector<int> regions_successor){
+
+int Node::get_number_disjoint_CNV_LOH(std::vector<int> regions_successor) {
     // Several events count as one if:
     // - they are adjacent (in the list of regions)
     // - they are on the same chromosome
@@ -434,8 +489,6 @@ int Node::get_number_disjoint_CNV_LOH(std::vector<int> regions_successor){
     if (segment_contains_LOH) count++;
     return count;
 }
-
-
 
 
 std::string Node::get_label(){
@@ -485,56 +538,89 @@ std::string Node::get_label(){
     return label;
 }
 
-std::string Node::get_label_simple(std::set<int> excluded_mutations){
+
+std::string Node::get_label_simple(std::set<int> excluded_mutations) {
     // This label (meant for graphviz) contains the list of mutations in the node.
     std::string label{};
-    for (int i=0;i<n_loci;i++){
-        if (excluded_mutations.count(i)) continue;
-        for (int mut: mutations){
-            if (i==mut){
+    for (int i = 0; i < n_loci; i++) {
+        if (excluded_mutations.count(i)) {
+            continue;
+        }
+        for (int mut: mutations) {
+            if (i == mut){
                 //check if this mutation is important or not
-                bool nonsyn_mut=false;
-                for (int pos=0;pos<data.locus_to_name[i].size()-1;pos++){
-                    if (data.locus_to_name[i].substr(pos,2)=="p.") nonsyn_mut=true;
+                bool nonsyn_mut = false;
+                for (int pos = 0; pos < data.locus_to_name[i].size() - 1; pos++) {
+                    if (data.locus_to_name[i].substr(pos, 2) == "p.") {
+                        nonsyn_mut = true;
+                    }
                 }
-                if (data.locus_to_name[i]=="FLT3-ITD") nonsyn_mut=true;
-                if (data.locus_to_name[i].size()>12 && data.locus_to_name[i].substr(data.locus_to_name[i].size()-12,12)=="splice-donor") nonsyn_mut = true;
-                bool somatic_nonsyn_mut = nonsyn_mut && data.locus_to_freq[i]==0.0;
-                if (somatic_nonsyn_mut) label+="<B>";
-                label+= data.locus_to_name[i]+"(chr"+data.locus_to_chromosome[mut]+")";
-                if (somatic_nonsyn_mut) label+="</B>";
-                label+="<br/>";
+                if (data.locus_to_name[i] == "FLT3-ITD") {
+                    nonsyn_mut = true;
+                }
+                if (data.locus_to_name[i].size() > 12 && data.locus_to_name[i].substr(data.locus_to_name[i].size() - 12, 12) == "splice-donor") {
+                    nonsyn_mut = true;
+                }
+                bool somatic_nonsyn_mut = nonsyn_mut && data.locus_to_freq[i] == 0.0;
+                if (somatic_nonsyn_mut) {
+                    label += "<B>";
+                }
+                label += data.locus_to_name[i] + "(chr" + data.locus_to_chromosome[mut] + "_" + std::to_string(data.locus_to_position[mut]) + ")";
+                if (somatic_nonsyn_mut) {
+                    label += "</B>";
+                }
+                label += "<br/>";
             }
         }
     }
-    for (std::pair<int,std::vector<int>> CNLOH: CNLOH_events){
+    for (std::pair<int, std::vector<int>> CNLOH: CNLOH_events) {
         int region = CNLOH.first;
-        if (data.region_is_reliable[region]) label+= "<B>CNLOH "  +data.region_to_name[region] + "(chr"+data.region_to_chromosome[region]+ "):";
-        else label+= "<B>LOH "  +data.region_to_name[region] + "(chr"+data.region_to_chromosome[region]+ "):";
-        // When a region was excluded from the CNV inferencem we do not know if a LOH is copy-neutral or not.
-        for (int i=0;i<CNLOH.second.size();i++){
-            if (CNLOH.second[i]==0) label+="REF";
-            else label+="ALT";
-            if (i+1<CNLOH.second.size()) label+=",";
+        if (data.region_is_reliable[region]) {
+            label += "<B>CNLOH " + data.region_to_name[region] + "(chr" + data.region_to_chromosome[region] + "):";
+        } else {
+            label += "<B>LOH " + data.region_to_name[region] + "(chr" + data.region_to_chromosome[region] + "):";
+        }
+        // When a region was excluded from the CNV inference we do not know if a LOH is copy-neutral or not.
+        for (int i = 0; i < CNLOH.second.size(); i++) {
+            if (CNLOH.second[i]==0) {
+                label+="REF";
+            } else {
+                label+="ALT";
+            }
+            if (i + 1 < CNLOH.second.size()) {
+                label+=",";
+            }
         }
         label += "</B><br/>";
     }
-    for (std::tuple<int,int,std::vector<int>> CNV:CNV_events){
+    for (std::tuple<int, int, std::vector<int>> CNV: CNV_events) {
         int region = std::get<0>(CNV);
         std::string sign{};
-        if (std::get<1>(CNV)==1) sign="+1";
-        else sign="-1";
-        label+= "<B>CNV" + sign + " "+ data.region_to_name[region];
-        std::vector<int> alleles = std::get<2>(CNV);
-        if (alleles.size()>0) label+=":";
-        for (int i = 0; i<alleles.size();i++){
-            if (alleles[i]==0) label+="REF";
-            else label+="ALT";
-            if (i+1<alleles.size()) label+=",";
+        if (std::get<1>(CNV) == 1) {
+            sign="+1";
+        } else {
+            sign="-1";
         }
-        label+=" (chr" + data.region_to_chromosome[region]+")";
-        label+="</B><br/>";
+        label += "<B>CNV" + sign + " " + data.region_to_name[region];
+        std::vector<int> alleles = std::get<2>(CNV);
+        if (alleles.size()>0) {
+            label+=":";
+        }
+        for (int i = 0; i < alleles.size(); i++) {
+            if (alleles[i]==0) {
+                label+="REF";
+            } else {
+                label+="ALT";
+            }
+            if (i + 1 < alleles.size()) {
+                label+=",";
+            }
+        }
+        label += " (chr" + data.region_to_chromosome[region] + ")";
+        label += "</B><br/>";
     }
-    if (label=="") label = " ";
+    if (label == "") {
+        label = " ";
+    }
     return label;
 }

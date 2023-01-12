@@ -5,6 +5,7 @@
 #include <stack>
 #include <iostream>
 #include <fstream>
+#include <string.h>
 
 #include "Tree.h"
 #include "Node.h"
@@ -22,21 +23,30 @@ extern std::vector<Cell> cells;
 extern Data data;
 extern Params parameters;
 
+
+// Helper function
+std::string rtrim(const std::string &s)
+{
+    size_t end = s.find_last_not_of(" ");
+    return (end == std::string::npos) ? "" : s.substr(0, end + 1);
+}
+
+
 Tree::Tree(Scores* cache, bool use_CNV): 
     hastings_ratio(-1.0),
     use_CNV(use_CNV)
 {
     cache_scores = cache;
     n_nodes = 6;
-    dropout_rates = std::vector<double>(n_loci,0.05);
-    dropout_rates_ref = std::vector<double>(n_loci,0.05);
-    dropout_rates_alt = std::vector<double>(n_loci,0.05);
+    dropout_rates = std::vector<double>(n_loci, 0.05);
+    dropout_rates_ref = std::vector<double>(n_loci, 0.05);
+    dropout_rates_alt = std::vector<double>(n_loci, 0.05);
 
     //Generate a random tree
     parents.resize(n_nodes);
-    parents[0]=-1; //root
-    for (int i=1;i<n_nodes;i++){
-        parents[i]=std::rand()%i; // new node attached randomly to one of the existing nodes.
+    parents[0] =- 1; //root
+    for (int i = 1; i < n_nodes; i++) {
+        parents[i] = std::rand() % i; // new node attached randomly to one of the existing nodes.
     }
     children.resize(n_nodes);
     compute_children();
@@ -44,14 +54,14 @@ Tree::Tree(Scores* cache, bool use_CNV):
     //Initialize the nodes.
     nodes.resize(n_nodes);
     node_probabilities.resize(n_nodes);
-    for (int i=0;i<n_nodes;i++){
+    for (int i = 0; i < n_nodes; i++) {
         nodes[i] = new Node(cache_scores);
-        node_probabilities[i] = 1.0/n_nodes;
+        node_probabilities[i] = 1.0 / n_nodes;
     }
 
     //randomly assign each somatic mutation to a node and compute the genotypes
-    for (int i=0;i<n_loci;i++){
-        nodes[std::rand()%n_nodes]->add_mutation(i);
+    for (int i = 0; i < n_loci; i++) {
+        nodes[std::rand() % n_nodes]->add_mutation(i);
     }
     compute_nodes_genotypes();
 
@@ -66,7 +76,8 @@ Tree::Tree(Scores* cache, bool use_CNV):
     update_full_score();
 }
 
-Tree::Tree(){
+
+Tree::Tree() {
     //nodes.clear();
     //doublets.clear();
     cells_attach_loglik.resize(n_cells);
@@ -111,15 +122,15 @@ Tree::Tree(const Tree& source):
 }
 
 
-
 Tree::~Tree(){
-    for (Node* node: nodes){
+    for (Node* node: nodes) {
         delete node;
     }
-    for (Node* doublet: doublets){
+    for (Node* doublet: doublets) {
         delete doublet;
     }
 }
+
 
 Tree& Tree::operator=(const Tree& source){
     // delete the old nodes
@@ -163,13 +174,14 @@ Tree& Tree::operator=(const Tree& source){
     return *this;
 }
 
+
 void Tree::compute_children(){
     // Compute the list of children of each node, from the parent vector.
     children.resize(n_nodes);
-    for (int i=0; i <n_nodes; i++){
+    for (int i = 0; i < n_nodes; i++) {
         children[i].clear();
     }
-    for (int i=1; i <n_nodes; i++){ //start from 1 because the root has no parent  
+    for (int i = 1; i < n_nodes; i++) { //start from 1 because the root has no parent
         children[parents[i]].push_back(i);
     }
 
@@ -187,18 +199,21 @@ void Tree::compute_children(){
     }
 }
 
-bool Tree::is_ancestor(int potential_ancestor, int potential_descendant){
-    if (potential_ancestor==0) return true;
+
+bool Tree::is_ancestor(int potential_ancestor, int potential_descendant) {
+    if (potential_ancestor == 0) return true;
     int ancestor = potential_descendant;
-    while (ancestor!=0){
-        if (ancestor==potential_ancestor) return true;
+    while (ancestor != 0) {
+        if (ancestor==potential_ancestor) {
+            return true;
+        }
         ancestor = parents[ancestor];
     }
     return false;
 }
 
 
-void Tree::compute_nodes_genotypes(){
+void Tree::compute_nodes_genotypes() {
     // Perform a depth-first traversal and compute the genotype of each node, based on the genotype of its parent.
     std::stack<int> stk;
     stk.push(0); 
@@ -207,33 +222,39 @@ void Tree::compute_nodes_genotypes(){
         stk.pop();
         for (int child: children[top]) {
             stk.push(child);
-        };
-        if (top!=0) nodes[top]->update_genotype(nodes[parents[top]]);
-        else nodes[top]->update_genotype(nullptr);
+        }
+        if (top != 0) {
+            nodes[top]->update_genotype(nodes[parents[top]]);
+        } else {
+            nodes[top]->update_genotype(nullptr);
+        }
     }
-    if (parameters.use_doublets){
-        for (Node* doublet: doublets){
+
+    if (parameters.use_doublets) {
+        for (Node* doublet: doublets) {
             delete doublet;
         }
         doublets.clear();
-        for (int k=0;k<n_nodes;k++){ //k: first node in the doublet
-            for (int l=k;l<n_nodes;l++){ //l: second node in the doublet
+        for (int k = 0; k < n_nodes; k++) { //k: first node in the doublet
+            for (int l = k; l < n_nodes; l++) { //l: second node in the doublet
                 // the first node in the doublet should be the one which is earlier is the DFT order
                 // when we compute the scores of the doublet from its parent, we only update the updated loci of the second node
-                int i=0;
-                while (DFT_order[i]!=k && DFT_order[i]!=l) i++;
-                if (DFT_order[i]==k) doublets.push_back(new Node(*nodes[k],*nodes[l]));
-                else doublets.push_back(new Node(*nodes[l],*nodes[k]));
-                
+                int i = 0;
+                while (DFT_order[i] != k && DFT_order[i] != l) {
+                    i++;
+                }
+                if (DFT_order[i] == k) {
+                    doublets.push_back(new Node(*nodes[k], *nodes[l]));
+                } else {
+                    doublets.push_back(new Node(*nodes[l], *nodes[k]));
+                }
             }
         }
     }
 }
 
 
-
-
-void Tree::compute_attachment_scores(bool use_doublets_local){
+void Tree::compute_attachment_scores(bool use_doublets_local) {
     // Compute the attachment scores of the nodes below node_index (including node_index) by performing a DFT
     std::stack<int> stk;
     stk.push(0);
@@ -243,114 +264,148 @@ void Tree::compute_attachment_scores(bool use_doublets_local){
         for (int child: children[top]) {
             stk.push(child);
         };
-        if (top==0) // root: compute score from scratch
-            nodes[top]->compute_attachment_scores(use_CNV,dropout_rates_ref,dropout_rates_alt,region_probabilities);
-        else // start from the parent score, and only compute the difference on loci/regions affected by events
-            nodes[top]->compute_attachment_scores_parent(use_CNV,nodes[parents[top]], dropout_rates_ref,dropout_rates_alt,region_probabilities);
+        if (top == 0) { // root: compute score from scratch
+            nodes[top]->compute_attachment_scores(use_CNV,
+                dropout_rates_ref, dropout_rates_alt, region_probabilities);
+        } else { // start from the parent score, and only compute the difference on loci/regions affected by events
+            nodes[top]->compute_attachment_scores_parent(use_CNV,
+                nodes[parents[top]],
+                dropout_rates_ref, dropout_rates_alt, region_probabilities);
+        }
     }
 
-    if (use_doublets_local){
-        for (int k=0;k<n_nodes;k++){
-            for (int l=k;l<n_nodes;l++){ 
+    if (use_doublets_local) {
+        for (int k = 0; k < n_nodes; k++) {
+            for (int l = k; l < n_nodes; l++) {
                 // traverse in DFT order, so that the scores of the parent are always already computed
                 int n1 = DFT_order[k]; // first node of the doublet
                 int n2 = DFT_order[l]; // second node of the doublet
                 int idx; // index in the doublets vector. The vector only contains pairs (k,l) with k<=l
-                if (n2>n1) idx = n_nodes * n1 - (n1*(n1-1))/2 + n2-n1;
-                else idx = n_nodes * n2 - (n2*(n2-1))/2 + n1-n2;
-                // compute doublet (0,0) from scratch
-                if (n1==0 && n2==0) doublets[idx]->compute_attachment_scores(use_CNV,dropout_rates_ref,dropout_rates_alt,region_probabilities);
-                // compute doublet (n1,n1) from (parent(n1),n1) (or (n1,parent(n1) )
-                else if (n1==n2){
+                if (n2 > n1) {
+                    idx = n_nodes * n1 - (n1 * (n1 - 1)) / 2 + n2 - n1;
+                } else {
+                    idx = n_nodes * n2 - (n2 * (n2 - 1)) / 2 + n1 - n2;
+                }
+                if (n1 == 0 && n2 == 0) {
+                    // compute doublet (0,0) from scratch
+                    doublets[idx]->compute_attachment_scores(use_CNV,
+                        dropout_rates_ref, dropout_rates_alt, region_probabilities);
+                } else if (n1 == n2) {
+                    // compute doublet (n1,n1) from (parent(n1),n1) (or (n1,parent(n1) )
                     int idx_parent;
-                    if (parents[n1]>n1) idx_parent = n_nodes * n1 - (n1*(n1-1))/2 + parents[n1]-n1;
-                    else idx_parent = n_nodes * parents[n1] - (parents[n1]*(parents[n1]-1))/2 + n1- parents[n1];
-                    doublets[idx]->compute_attachment_scores_parent(use_CNV,doublets[idx_parent],dropout_rates_ref,dropout_rates_alt,region_probabilities);
-                } 
-                // compute doublet (n1,n2) from (n1,parent(n2)) (or (parent(n2),n1) )
-                else {
+                    if (parents[n1] > n1) {
+                        idx_parent = n_nodes * n1 - (n1 * (n1 - 1)) / 2 + parents[n1] - n1;
+                    } else {
+                        idx_parent = n_nodes * parents[n1] - (parents[n1] * (parents[n1] - 1)) / 2 + n1 - parents[n1];
+                    }
+                    doublets[idx]->compute_attachment_scores_parent(use_CNV,
+                        doublets[idx_parent],
+                        dropout_rates_ref, dropout_rates_alt, region_probabilities);
+                } else {
+                    // compute doublet (n1,n2) from (n1,parent(n2)) (or (parent(n2),n1) )
                     int idx_parent;
-                    if (parents[n2]>n1) idx_parent = n_nodes * n1 - (n1*(n1-1))/2 + parents[n2]-n1;
-                    else idx_parent = n_nodes * parents[n2] - (parents[n2]*(parents[n2]-1))/2 + n1- parents[n2];
-                    doublets[idx]->compute_attachment_scores_parent(use_CNV,doublets[idx_parent],dropout_rates_ref,dropout_rates_alt,region_probabilities);
+                    if (parents[n2] > n1) {
+                        idx_parent = n_nodes * n1 - (n1 * (n1 - 1)) / 2 + parents[n2] - n1;
+                    } else {
+                        idx_parent = n_nodes * parents[n2] - (parents[n2] * (parents[n2] - 1)) / 2 + n1 - parents[n2];
+                    }
+                    doublets[idx]->compute_attachment_scores_parent(use_CNV,
+                        doublets[idx_parent],
+                        dropout_rates_ref, dropout_rates_alt, region_probabilities);
                 }
             }
         }
     }
-
 }
 
 
-
-void Tree::compute_likelihood(bool allow_diff_dropoutrates){
+void Tree::compute_likelihood(bool allow_diff_dropoutrates) {
     // Compute the likelihood by marginalizing over the attachment points
     compute_nodes_genotypes();
     cache_scores->clear_cache_if_too_large();
 
     // EM algorithm to find best node probabilities and dropout rates
     // start with uniform node probabilities and the previous dropout rates
-    for (int k=0;k<n_nodes;k++) node_probabilities[k]=1.0/n_nodes;
+    for (int k = 0; k < n_nodes; k++) {
+        node_probabilities[k] = 1.0 / n_nodes;
+    }
 
-    avg_diff_nodeprob=10.0; // how much the node probabilities changed between 2 EM steps
-    avg_diff_dropoutrates=10.0; // how much the dropout rates changed between 2 EM steps
+    avg_diff_nodeprob = 10.0; // how much the node probabilities changed between 2 EM steps
+    avg_diff_dropoutrates = 10.0; // how much the dropout rates changed between 2 EM steps
 
     bool use_doublets_EM = false;
-    int n_loops=0;
-    while((avg_diff_nodeprob>0.0005|| avg_diff_dropoutrates>0.0001) && n_loops<100){
-        if (avg_diff_dropoutrates>0.0005) compute_attachment_scores(use_doublets_EM); // attachment scores of cells to nodes do not depend on node probabilities
+    int n_loops = 0;
+    while ((avg_diff_nodeprob > 0.0005 || avg_diff_dropoutrates > 0.0001) && n_loops < 100) {
+        // attachment scores of cells to nodes do not depend on node probabilities
+        if (avg_diff_dropoutrates > 0.0005) {
+            compute_attachment_scores(use_doublets_EM);
+        }
         compute_cells_likelihoods(use_doublets_EM);
-        EM_step(use_doublets_EM,false);
+        EM_step(use_doublets_EM, false);
         n_loops++;
     }
     // See if likelihood can be improved by allowing, for some loci, the 2 alleles to have different dropout rates
-    if (allow_diff_dropoutrates){
-        EM_step(use_doublets_EM,true);
-        n_loops=0;
-        while((avg_diff_nodeprob>0.0005|| avg_diff_dropoutrates>0.0001) && n_loops<40){
-            if (avg_diff_dropoutrates>0.0005) compute_attachment_scores(use_doublets_EM); // attachment scores of cells to nodes do not depend on node probabilities
+    if (allow_diff_dropoutrates) {
+        EM_step(use_doublets_EM, true);
+        n_loops = 0;
+        while ((avg_diff_nodeprob > 0.0005 || avg_diff_dropoutrates > 0.0001) && n_loops < 40) {
+            // attachment scores of cells to nodes do not depend on node probabilities
+            if (avg_diff_dropoutrates > 0.0005) {
+                compute_attachment_scores(use_doublets_EM);
+            }
             compute_cells_likelihoods(use_doublets_EM);
-            EM_step(use_doublets_EM,true);
+            EM_step(use_doublets_EM, true);
             n_loops++;
         }
     }
-    if (parameters.use_doublets && !use_doublets_EM){
+    if (parameters.use_doublets && !use_doublets_EM) {
         // if we did not use doublets for the EM algorithm, we need to recompute the scores with the doublets
         compute_attachment_scores(parameters.use_doublets); 
         compute_cells_likelihoods(parameters.use_doublets);
     }
-    log_likelihood=0;
-    for (int j=0;j<n_cells;j++){
-        log_likelihood+=cells_loglik[j];
+    log_likelihood = 0;
+    for (int j = 0; j < n_cells; j++) {
+        log_likelihood += cells_loglik[j];
     }
 }
 
 
-void Tree::compute_cells_likelihoods(bool use_doublets_local){
+void Tree::compute_cells_likelihoods(bool use_doublets_local) {
     int n_attachment_points = n_nodes;
-    if (use_doublets_local) n_attachment_points = (n_nodes*(n_nodes+3)) / 2; //can attach to a node or to a doublet
+    if (use_doublets_local) {
+        n_attachment_points = (n_nodes * (n_nodes + 3)) / 2; //can attach to a node or to a doublet
+    }
 
-    for (int j=0; j<n_cells; j++){ 
-        double max_loglik=-DBL_MAX;
-        int best_attach=-1;
+    for (int j = 0; j < n_cells; j++) {
+        double max_loglik = -DBL_MAX;
+        int best_attach = -1;
         cells_attach_loglik[j].resize(n_attachment_points);
-        for (int k=0; k<n_nodes;k++){
+        for (int k = 0; k < n_nodes; k++) {
             cells_attach_loglik[j][k] = nodes[k]->attachment_scores[j] + std::log(node_probabilities[k]);
-            if (use_doublets_local) cells_attach_loglik[j][k]+=std::log(1-parameters.doublet_rate);
-            if (cells_attach_loglik[j][k] > max_loglik){
-                max_loglik=cells_attach_loglik[j][k];
-                best_attach=k;
+            if (use_doublets_local) {
+                cells_attach_loglik[j][k] += std::log(1 - parameters.doublet_rate);
+            }
+            if (cells_attach_loglik[j][k] > max_loglik) {
+                max_loglik = cells_attach_loglik[j][k];
+                best_attach = k;
             }
         }
-        if (use_doublets_local){
-            int idx=0;
-            for (int k=0;k<n_nodes;k++){
-                for (int l=k;l<n_nodes;l++){
-                    cells_attach_loglik[j][n_nodes+idx] = doublets[idx]->attachment_scores[j] + std::log(node_probabilities[k]) 
-                    + std::log(node_probabilities[l]) +std::log(parameters.doublet_rate);
-                    if (k!=l)  cells_attach_loglik[j][n_nodes+idx] += std::log(2); // the doublet (l,k) has the same probability as (k,l)
-                    if ( cells_attach_loglik[j][n_nodes+idx] > max_loglik){
-                        max_loglik =  cells_attach_loglik[j][n_nodes+idx];
-                        best_attach = n_nodes+idx;
+        if (use_doublets_local) {
+            int idx = 0;
+            for (int k = 0; k < n_nodes; k++) {
+                for (int l = k; l < n_nodes; l++) {
+                    cells_attach_loglik[j][n_nodes + idx] =
+                        doublets[idx]->attachment_scores[j]
+                        + std::log(node_probabilities[k])
+                        + std::log(node_probabilities[l])
+                        + std::log(parameters.doublet_rate);
+                    if (k != l) {
+                        // the doublet (l,k) has the same probability as (k,l)
+                        cells_attach_loglik[j][n_nodes + idx] += std::log(2);
+                    }
+                    if (cells_attach_loglik[j][n_nodes+idx] > max_loglik) {
+                        max_loglik = cells_attach_loglik[j][n_nodes+idx];
+                        best_attach = n_nodes + idx;
                     }
                     idx++;
                 }
@@ -361,13 +416,14 @@ void Tree::compute_cells_likelihoods(bool use_doublets_local){
     }
 }
 
-void Tree::EM_step(bool use_doublets_local, bool allow_diff_dropoutrates){
+
+void Tree::EM_step(bool use_doublets_local, bool allow_diff_dropoutrates) {
     int n_attachment_points = n_nodes;
     if (use_doublets_local) n_attachment_points = (n_nodes*(n_nodes+3)) / 2; //can attach to a node or to a doublet
     nodes_attachment_counts.resize(n_nodes);
     for (int k=0;k<n_nodes;k++) nodes_attachment_counts[k]=0.0;
     //E-step: compute probabilities that cell j is attached to node k, number of cells attached to each node and number of dropouts
-    for (int j=0; j<n_cells; j++){ 
+    for (int j=0; j<n_cells; j++) {
         cells_attach_prob[j].resize(n_attachment_points);
 
         for (int k=0;k<n_nodes;k++){
@@ -483,8 +539,8 @@ void Tree::EM_step(bool use_doublets_local, bool allow_diff_dropoutrates){
         avg_diff_dropoutrates+= (std::abs(dropout_rates_ref[i] - prev_ref) + std::abs(dropout_rates_alt[i] - prev_alt))  / n_loci;
 
     }
-
 }
+
 
 bool Tree::rec_check_max_one_event_per_region_per_lineage(int node, std::vector<int> n_events_in_regions){
     // check that each region is affected, in one lineage, by at most one CNLOH or CNV event.
@@ -502,6 +558,7 @@ bool Tree::rec_check_max_one_event_per_region_per_lineage(int node, std::vector<
         }
         return valid;
     }
+
 
 void Tree::compute_prior_score(){
     // Penalize number of nodes
@@ -562,9 +619,11 @@ void Tree::compute_prior_score(){
     }
 }
 
+
 void Tree::update_full_score(){
     log_score = log_likelihood + log_prior_score;
 }
+
 
 void Tree::to_dot(std::string filename){
     // Save the tree structure in dot format (for visualization)
@@ -575,7 +634,6 @@ void Tree::to_dot(std::string filename){
     out_file <<"digraph G{"<<std::endl;
     out_file <<"node [color=dimgray fontsize=24 fontcolor=black fontname=Helvetica penwidth=5];"<<std::endl;
     for (int i=1;i<n_nodes;i++){
-        if (parameters.verbose) std::cout<<i<< " is a child of "<<parents[i]<<std::endl;
         out_file<<parents[i]<<" -> "<<i<<" [color=dimgray penwidth=4 weight=2];"<<std::endl;
     }
 
@@ -597,7 +655,7 @@ void Tree::to_dot(std::string filename){
     }
     for (int k=0;k<n_nodes;k++){
         double size = std::sqrt(100.0*count_nodes[k]/total) /3.0;
-        out_file<<k+n_nodes<<"[label=\""<<count_nodes[k]<<" cells\\n"<<std::round(100.0*count_nodes[k]/total)<<"\\%\""<<" style = filled width="<<size
+        out_file<<k+n_nodes<<"[label=\""<<count_nodes[k]<<" cells\\n"<<std::round(100.0*count_nodes[k]/total)<<"\\%\""<<" style=filled width="<<size
         <<" height="<<size<<" color="<<colors[k%colors.size()]<<"];"<<std::endl;
     }
 
@@ -615,83 +673,101 @@ void Tree::to_dot(std::string filename){
     
 }
 
-void Tree::to_dot_pretty(std::string filename){
+
+void Tree::to_dot_pretty(std::string filename) {
     // Save the tree structure in dot format (for visualization)
 
-    std::vector<std::string> colors{"lightcoral","skyblue3","sandybrown","paleturquoise3","thistle","darkolivegreen3","lightpink","mediumpurple",
-                    "darkseagreen3","navajowhite","gold"};
+    std::vector<std::string> colors{"lightcoral", "skyblue3", "sandybrown",
+        "paleturquoise3", "thistle", "darkolivegreen3", "lightpink",
+        "mediumpurple", "darkseagreen3", "navajowhite", "gold"};
 
     // If filename ends with .gv: only output the tree in graphviz format. Otherwise output tree and cell assignments to nodes.
     bool full_output = true;
-    if (filename.size()>3 &&  filename.substr(filename.size()-3)==".gv"){
+    if (filename.substr(filename.size() - 3) == ".gv") {
         full_output = false;
     }
     std::string basename(filename);
-    if (full_output){
+    if (full_output) {
         filename = filename + "_tree.gv";
-    }
-    else{
-        basename = filename.substr(0,filename.size()-3);
+    } else {
+        basename = filename.substr(0, filename.size() - 3);
     }
     std::ofstream out_file(filename);
 
-    out_file <<"digraph G{"<<std::endl;
-    out_file <<"node [color=dimgray fontsize=24 fontcolor=black fontname=Helvetica penwidth=5];"<<std::endl;
-    for (int i=1;i<n_nodes;i++){
-        if (parameters.verbose) std::cout<<i<< " is a child of "<<parents[i]<<std::endl;
-        out_file<<parents[i]<<" -> "<<i<<" [color=dimgray penwidth=4 weight=2];"<<std::endl;
+    out_file << "digraph G{" << std::endl;
+    out_file << "node [color=dimgray fontsize=24 fontcolor=black fontname=Helvetica penwidth=5];" << std::endl;
+    for (int i = 1; i < n_nodes; i++) {
+        out_file << parents[i] << " -> " << i << " [color=dimgray penwidth=4 weight=2];" << std::endl;
     }
 
     // Identify mutations at the root which are not affected by a CNV or CNLOH
     std::set<int> excluded_mutations{};
-    if (n_nodes>0){
-        for (int m: nodes[0]->get_mutations()){
-            bool affected_by_event=false;
-            for (int n=0;n<n_nodes;n++){
-                for (auto CNLOH: nodes[n]->get_CNLOH_events()){
-                    if (data.locus_to_region[m]==CNLOH.first) affected_by_event = true;
+    if (n_nodes > 0) {
+        for (int m: nodes[0]->get_mutations()) {
+
+            bool affected_by_event = false;
+            for (int n = 0; n < n_nodes; n++) {
+                for (auto CNLOH: nodes[n]->get_CNLOH_events()) {
+                    if (data.locus_to_region[m] == CNLOH.first) {
+                        affected_by_event = true;
+                    }
                 }
-                for (auto CNV: nodes[n]->get_CNV_events()){
-                    if (data.locus_to_region[m]==std::get<0>(CNV)) affected_by_event = true;
+                for (auto CNV: nodes[n]->get_CNV_events()) {
+                    if (data.locus_to_region[m] == std::get<0>(CNV)) {
+                        affected_by_event = true;
+                    }
                 }
             }
-            if (!affected_by_event) excluded_mutations.insert(m);
+            if (!affected_by_event) {
+                excluded_mutations.insert(m);
+            }
         }
     }
 
-    for (int i=0;i<n_nodes;i++){
-        out_file<<i<<"[label=<"<<nodes[i]->get_label_simple(excluded_mutations)<<">];"<<std::endl;
+    for (int i = 0; i < n_nodes; i++) {
+        out_file << i << "[label=<"
+            << nodes[i]->get_label_simple(excluded_mutations) << ">];"
+            << std::endl;
     }
 
-    for (int k=0;k<n_nodes;k++){
-        out_file<<k<<" -> "<<k+n_nodes<<" [dir=none style=dashed weight=1 penwidth=5 color="<<colors[k%colors.size()]<<"];"<<std::endl;
+    for (int k = 0; k < n_nodes; k++) {
+        out_file << k << " -> " << k + n_nodes
+            << " [dir=none style=dashed weight=1 penwidth=5 color="
+            << colors[k%colors.size()] << "];" << std::endl;
     }
-    std::vector<int> count_nodes(n_nodes,0);
+    std::vector<int> count_nodes(n_nodes, 0);
     int total=0;
-    for (int j=0;j<n_cells;j++){
-        if (best_attachments[j]>=0 && best_attachments[j]<n_nodes){
+    for (int j=0; j < n_cells; j++) {
+        if (best_attachments[j] >= 0 && best_attachments[j] < n_nodes) {
              count_nodes[best_attachments[j]]++;
              total++;
         }
     }
-    for (int k=0;k<n_nodes;k++){
-        double size = std::sqrt(100.0*count_nodes[k]/total) /3.0;
-        out_file<<k+n_nodes<<"[label=\""<<count_nodes[k]<<" cells\\n"<<std::round(100.0*count_nodes[k]/total)<<"\\%\""<<" style = filled width="<<size
-        <<" height="<<size<<" color="<<colors[k%colors.size()]<<"];"<<std::endl;
+    for (int k = 0; k < n_nodes; k++) {
+        double size = std::sqrt(100.0 * count_nodes[k] / total) / 3.0;
+        out_file << k + n_nodes << "[label=\"" << count_nodes[k] << " cells\\n"
+            << std::round(100.0 * count_nodes[k] / total) << "\\%\""
+            << " style = filled width=" << size <<" height=" << size << " color="
+            << colors[k%colors.size()]<<"];" <<std::endl;
     }
 
-    out_file <<"}"<<std::endl;
+    out_file << "}" << std::endl;
     out_file.close();
-    if (parameters.verbose) std::cout<<"Node probabilities"<<std::endl;
-    for (int n=0;n<n_nodes;n++){
-        if (parameters.verbose) std::cout<<n<<": "<<node_probabilities[n]<<std::endl;
-    }
-    if (parameters.verbose) std::cout<<"Dropout rates"<<std::endl;
-    for (int i=0;i<n_loci;i++){
-        if (parameters.verbose) std::cout<<i<<" ("<<data.locus_to_name[i]<<"): "<<dropout_rates[i]<<" (ref:" <<dropout_rates_ref[i]<<", alt:"<<dropout_rates_alt[i]<<")"<<std::endl;
-    }
 
-    if (full_output){
+    // if (parameters.verbose) {
+    //     std::cout << "Node probabilities" << std::endl;
+    //     for (int n = 0; n < n_nodes; n++) {
+    //         std::cout << n << ": " << node_probabilities[n] << std::endl;
+    //     }
+    //     std::cout << "Dropout rates" << std::endl;
+    //     for (int i = 0; i < n_loci; i++) {
+    //         std::cout << i << " (" << data.locus_to_name[i] << "): "
+    //             << dropout_rates[i] << " (ref:" << dropout_rates_ref[i]
+    //             << ", alt:" << dropout_rates_alt[i] << ")" << std::endl;
+    //     }
+    // }
+
+    if (full_output) {
         // Recompute assignment probabilities, only taking singlets into account
         std::vector<std::vector<double>> cells_attach_loglik_singlet; 
         std::vector<double> cells_loglik_singlet;
@@ -699,12 +775,12 @@ void Tree::to_dot_pretty(std::string filename){
         cells_attach_loglik_singlet.resize(n_cells);
         cells_loglik_singlet.resize(n_cells);
         best_attachments_singlet.resize(n_cells);
-        for (int j=0;j<n_cells;j++){
+        for (int j = 0; j < n_cells; j++) {
             cells_attach_loglik_singlet[j].resize(n_nodes);
-            double best_attach_score=-DBL_MAX;
-            for (int k=0;k<n_nodes;k++){
+            double best_attach_score = -DBL_MAX;
+            for (int k = 0; k < n_nodes; k++) {
                 cells_attach_loglik_singlet[j][k] = cells_attach_loglik[j][k];
-                if (cells_attach_loglik_singlet[j][k]>best_attach_score){
+                if (cells_attach_loglik_singlet[j][k] > best_attach_score) {
                     best_attach_score = cells_attach_loglik_singlet[j][k];
                     best_attachments_singlet[j] = k;
                 }
@@ -713,189 +789,197 @@ void Tree::to_dot_pretty(std::string filename){
         }
 
         // Assignments of cells to nodes 
-        std::ofstream out_file_cell_assignments(basename+"_cellAssignments.tsv");
-        std::ofstream out_file_cell_assignment_probs(basename+"_cellAssignmentProbs.tsv");
+        std::ofstream out_file_cell_assignments(basename + "_cellAssignments.tsv");
+        std::ofstream out_file_cell_assignment_probs(basename + "_cellAssignmentProbs.tsv");
 
-        //Header
-        out_file_cell_assignments <<"cell\tnode\tdoublet"<<std::endl;
-        out_file_cell_assignment_probs <<"cell";
-        for (int k=0; k < n_nodes;k++){
-            out_file_cell_assignment_probs<<"\tNode "<<k;
+        // Mapping of doublet index to 2 individual cells
+        std::map<int, std::string> dbt_ids_to_node;
+        int idx = 0;
+        for (int k = 0; k < n_nodes; k++) {
+            for (int l = k; l < n_nodes; l++) {
+                dbt_ids_to_node[idx + n_nodes] = std::to_string(k) + "+" + std::to_string(l);
+                idx++;
+            }
         }
-        /*if (parameters.use_doublets){
-            std::cout<<cells_attach_loglik[0].size()<<std::endl;
-                for (int k=0;k<n_nodes;k++){
-                    for (int l=k;l<n_nodes;l++){
-                        out_file_cell_assignment_probs << "\tDoublet "<<k<<","<<l;
+
+        // Header
+        out_file_cell_assignments << "cell\tnode\tdoublet" << std::endl;
+        out_file_cell_assignment_probs << "cell";
+        for (int k = 0; k < n_nodes; k++) {
+            out_file_cell_assignment_probs << "\tNode " << k;
+        }
+        /*if (parameters.use_doublets) {
+            std::cout << cells_attach_loglik[0].size() << std::endl;
+                for (int k = 0; k < n_nodes; k++) {
+                    for (int l = k; l < n_nodes; l++) {
+                        out_file_cell_assignment_probs << "\tDoublet " << k << "," << l;
                     }
                 }
         }*/
-        out_file_cell_assignment_probs<<std::endl;
-        
+        out_file_cell_assignment_probs << std::endl;
         // Content
-        for (int j=0;j<n_cells;j++){
-            out_file_cell_assignments << cells[j].name<<"\t"<<best_attachments_singlet[j];
-            if (best_attachments[j]>=n_nodes) out_file_cell_assignments<<"\tyes"<<std::endl;
-            else out_file_cell_assignments<<"\tno"<<std::endl;
-            
-            out_file_cell_assignment_probs<<cells[j].name;
-            for (int k=0; k < n_nodes;k++){
-                out_file_cell_assignment_probs<<"\t"<<std::exp(cells_attach_loglik_singlet[j][k]-cells_loglik_singlet[j]);
+        for (int j = 0; j < n_cells; j++) {
+            out_file_cell_assignments << cells[j].name << "\t";
+            if (best_attachments[j] >= n_nodes) { // doublet: map idx to singlets
+                out_file_cell_assignments
+                    << dbt_ids_to_node[best_attachments[j]] << "\tyes" << std::endl;
+            } else { // singlet
+                out_file_cell_assignments
+                    << best_attachments_singlet[j] << "\tno" << std::endl;
             }
-            /*if (parameters.use_doublets){
-                int idx=0;
-                for (int k=0;k<n_nodes;k++){
-                    for (int l=k;l<n_nodes;l++){
-                        out_file_cell_assignment_probs << "\t"<<std::exp(cells_attach_loglik[j][n_nodes+idx]-cells_loglik[j]);
+            
+            out_file_cell_assignment_probs << cells[j].name;
+            for (int k = 0; k < n_nodes; k++) {
+                out_file_cell_assignment_probs << "\t"
+                    << std::exp(cells_attach_loglik_singlet[j][k] - cells_loglik_singlet[j]);
+            }
+            /*if (parameters.use_doublets) {
+                int idx = 0;
+                for (int k = 0; k < n_nodes; k++) {
+                    for (int l = k; l < n_nodes; l++) {
+                        out_file_cell_assignment_probs << "\t"
+                            << std::exp(cells_attach_loglik[j][n_nodes+idx] - cells_loglik[j]);
                         idx++;
                     }
                 }
             }*/
-            out_file_cell_assignment_probs<<std::endl;
+            out_file_cell_assignment_probs << std::endl;
         }
-         out_file_cell_assignments.close();
-         out_file_cell_assignment_probs.close();
+        out_file_cell_assignments.close();
+        out_file_cell_assignment_probs.close();
 
         // ----------------------------------
         // Tree in json format
-        std::ofstream out_file_json(basename+"_tree.json");
-        out_file_json<<"{"<<std::endl;
-        out_file_json<<"\"nodes\":["<<std::endl;
-        for (int k=0;k<n_nodes;k++){
-            out_file_json<<"\t{"<<std::endl;
-            out_file_json<<"\t\t\"name\": \"Node "<<k<<"\","<<std::endl;
-            if (parents[k]>=0){
-                out_file_json<<"\t\t\"parent\": \"Node "<<parents[k]<<"\","<<std::endl;
-            }
-            else{
-                out_file_json<<"\t\t\"parent\": \"-\","<<std::endl;
+        std::ofstream out_file_json(basename + "_tree.json");
+        out_file_json << "{" << std::endl;
+        out_file_json << "\"nodes\":[" << std::endl;
+        for (int k = 0; k < n_nodes; k++) {
+            out_file_json << "\t{" << std::endl;
+            out_file_json << "\t\t\"name\": \"Node " << k << "\"," << std::endl;
+            if (parents[k] >= 0) {
+                out_file_json << "\t\t\"parent\": \"Node " << parents[k] << "\","
+                    << std::endl;
+            } else {
+                out_file_json << "\t\t\"parent\": \"-\"," << std::endl;
             }
             
             //SNV
-            out_file_json<<"\t\t\"SNV\": [";
+            out_file_json << "\t\t\"SNV\": [";
             std::vector<int> SNVs = nodes[k]->get_mutations();
-            if (SNVs.size()>0){
-                out_file_json<<"\""<<data.locus_to_name[SNVs[0]]<<"\"";
-                for (int i=1;i<SNVs.size();i++){
-                    out_file_json<<",\""<<data.locus_to_name[SNVs[i]]<<"\"";
+            if (SNVs.size() > 0) {
+                out_file_json << "\"" << data.locus_to_name[SNVs[0]] << "\"";
+                for (int i = 1; i < SNVs.size(); i++) {
+                    out_file_json << ",\"" << data.locus_to_name[SNVs[i]] << "\"";
                 }
             }
-            out_file_json<<"],"<<std::endl;
+            out_file_json << "]," << std::endl;
             //CNLOH
-            out_file_json<<"\t\t\"CNLOH\": [";
-            std::multiset<std::pair<int,std::vector<int>>> CNLOHs = nodes[k]->get_CNLOH_events();
-            if (CNLOHs.size()>0){
-                bool first=true;
+            out_file_json << "\t\t\"CNLOH\": [";
+            std::multiset<std::pair<int, std::vector<int>>> CNLOHs = nodes[k]->get_CNLOH_events();
+            if (CNLOHs.size() > 0) {
+                bool first = true;
                 for (auto CNLOH: CNLOHs){
                     if (!first) {
-                         out_file_json<<",";
+                         out_file_json << ",";
                     }
-                    out_file_json<<"\"";
-                    out_file_json<<data.region_to_name[CNLOH.first];
-                    out_file_json<<"\"";
-                     first=false;
+                    out_file_json << "\"";
+                    out_file_json << data.region_to_name[CNLOH.first];
+                    out_file_json << "\"";
+                    first = false;
                 }
             }
-            out_file_json<<"],"<<std::endl;
-
+            out_file_json << "]," << std::endl;
             //CNV
-            out_file_json<<"\t\t\"CNV\": [";
-            std::multiset<std::tuple<int,int,std::vector<int>>> CNVs = nodes[k]->get_CNV_events();
-            if (CNVs.size()>0){
-                bool first=true;
-                for (auto CNV: CNVs){
+            out_file_json << "\t\t\"CNV\": [";
+            std::multiset<std::tuple<int, int,std::vector<int>>> CNVs = nodes[k]->get_CNV_events();
+            if (CNVs.size() > 0) {
+                bool first = true;
+                for (auto CNV: CNVs) {
                     if (!first) {
-                         out_file_json<<",";
+                        out_file_json << ",";
                     }
-                    out_file_json<<"\"";
-                    if (std::get<1>(CNV)>0){
-                         out_file_json<<"+";
+                    out_file_json << "\"";
+                    if (std::get<1>(CNV) > 0) {
+                        out_file_json << "+";
+                    } else {
+                        out_file_json << "-";
                     }
-                    else{
-                        out_file_json<<"-";
-                    }
-                     out_file_json<<data.region_to_name[std::get<0>(CNV)];
-                     out_file_json<<"\"";
-                     first=false;
+                    out_file_json << data.region_to_name[std::get<0>(CNV)];
+                    out_file_json << "\"";
+                    first = false;
                 }
             }
-            out_file_json<<"]"<<std::endl;
-
-            out_file_json<<"\t}";
-            if (k<n_nodes-1){
-                out_file_json<<",";
+            out_file_json << "]" << std::endl;
+            out_file_json << "\t}";
+            if (k < n_nodes - 1) {
+                out_file_json << ",";
             }
-            out_file_json<<std::endl;
+            out_file_json << std::endl;
         }
-
-        out_file_json<<"]"<<std::endl;
-        out_file_json<<"}"<<std::endl;
+        out_file_json << "]" << std::endl;
+        out_file_json << "}" << std::endl;
         out_file_json.close();
 
         // ----------------------------------
         // Node genotypes 
-
-        std::ofstream out_file_genotypes(basename+"_nodes_genotypes.tsv");
-
+        std::ofstream out_file_genotypes(basename + "_nodes_genotypes.tsv");
         // Header
-        out_file_genotypes<<"node";
-        for (std::string name : data.locus_to_name){
-            out_file_genotypes << "\t"<<name;
+        out_file_genotypes << "node";
+        for (int i = 0; i < n_loci; i++) {
+            out_file_genotypes << "\t" << "chr" << data.locus_to_chromosome[i]
+                << "_" << data.locus_to_position[i] << "(" <<
+                data.locus_to_name[i] << ")";
         }
         out_file_genotypes<<std::endl;
-
         // Content
-        for (int k=0;k<n_nodes;k++){
-            out_file_genotypes<<"Node "<<k;
-            for (int i=0;i<n_loci;i++){
-                if (nodes[k]->get_n_alt_allele(i)==0){
-                     out_file_genotypes<<"\t0";
-                }
-                else if (nodes[k]->get_n_ref_allele(i)>0 ){
-                     out_file_genotypes<<"\t1";
-                }
-                else{
-                    out_file_genotypes<<"\t2";
+        for (int k = 0; k < n_nodes; k++) {
+            out_file_genotypes << "Node " << k;
+            for (int i = 0; i < n_loci; i++) {
+                if (nodes[k]->get_n_alt_allele(i) == 0) {
+                    out_file_genotypes << "\t0";
+                } else if (nodes[k]->get_n_ref_allele(i) > 0) {
+                    out_file_genotypes << "\t1";
+                } else {
+                    out_file_genotypes << "\t2";
                 }
             }
-            out_file_genotypes<<std::endl;
+            out_file_genotypes << std::endl;
         }
-
         out_file_genotypes.close();
 
         // ----------------------------------
         // Node copy numbers
         if (use_CNV){
-
-            std::ofstream out_file_copynumbers(basename+"_nodes_copynumbers.tsv");
-
+            std::ofstream out_file_copynumbers(basename + "_nodes_copynumbers.tsv");
             // Header
-            out_file_copynumbers<<"node";
-            for (std::string name : data.region_to_name){
-                out_file_copynumbers << "\t"<<name;
+            out_file_copynumbers << "node";
+            for (std::string name: data.region_to_name) {
+                out_file_copynumbers << "\t" << name;
             }
-            out_file_copynumbers<<std::endl;
-
+            out_file_copynumbers << std::endl;
             // Content
-            for (int k=0;k<n_nodes;k++){
-                out_file_copynumbers<<"Node "<<k;
-                for (int i=0;i<n_regions;i++){
-                    out_file_copynumbers<<"\t"<<nodes[k]->get_cn_region(i);
+            for (int k = 0; k < n_nodes; k++) {
+                out_file_copynumbers << "Node " << k;
+                for (int i = 0; i < n_regions; i++) {
+                    out_file_copynumbers << "\t" << nodes[k]->get_cn_region(i);
                 }
-                out_file_copynumbers<<std::endl;
+                out_file_copynumbers << std::endl;
             }
-
             out_file_copynumbers.close();
         }
     }
-    
 }
 
 
-Tree::Tree(std::string gv_file, bool use_CNV_arg): //Create tree from a graphviz file
-    hastings_ratio(-1.0)     
+//Create tree from a graphviz file
+Tree::Tree(std::string gv_file, bool use_CNV):
+    hastings_ratio(-1.0),
+    use_CNV(use_CNV)
 {
-    for (int i=0;i<n_loci;i++){
+    if (parameters.verbose) {
+        std::cout << "\nReading starting tree from file: " << gv_file;
+    }
+    for (int i = 0; i < n_loci; i++) {
         dropout_rates.push_back(0.05);
         dropout_rates_ref.push_back(0.05);
         dropout_rates_alt.push_back(0.05);
@@ -904,142 +988,291 @@ Tree::Tree(std::string gv_file, bool use_CNV_arg): //Create tree from a graphviz
     std::ifstream file(gv_file);
     std::string line;
     //skip first 2 lines
-    getline (file, line);
-    getline (file, line);
-    n_nodes=1;
+    getline(file, line);
+    getline(file, line);
+    n_nodes = 1;
     parents.resize(1);
-    parents[0]=-1;
-    // Read parents
-    bool finished_reading_parents=false;
+    parents[0] = -1;
+    // Read edges
+    bool finished_reading_parents = false;
     while (!finished_reading_parents) {
-        getline (file, line);
-        if (line.find("->")==std::string::npos) finished_reading_parents=true;
-        else{
-            int idx=1;
-            while (line[idx]!=' ') idx++;
-            int parent = stoi(line.substr(0,idx));
+        getline(file, line);
+        if (line.find("->") == std::string::npos) {
+            finished_reading_parents = true;
+        } else {
+            int idx = 1;
+            while (line[idx] != ' ') {
+                idx++;
+            }
+            int parent = std::stoi(line.substr(0, idx));
             idx++;
-            while (line[idx]!=' ') idx++;
+            while (line[idx] != ' ') {
+                idx++;
+            }
             idx++;
-            int idx2=idx+1;
-            while (line[idx2]!=' '&& line[idx]!=';') idx2++;
-            int child = stoi(line.substr(idx,idx2-idx));
-            if (child+1 >n_nodes) n_nodes = child+1;
-            if (parent+1 > n_nodes) n_nodes = parent+1;
+            int idx2 = idx + 1;
+            while (line[idx2] != ' ' && line[idx] != ';') {
+                idx2++;
+            }
+            int child = std::stoi(line.substr(idx, idx2 - idx));
+            if (child + 1 > n_nodes) {
+                n_nodes = child + 1;
+            }
+            if (parent + 1 > n_nodes) {
+                n_nodes = parent + 1;
+            }
             parents.resize(n_nodes);
             parents[child] = parent;
         }
     }
+
     // Create nodes 
-    for (int i=0;i<n_nodes;i++){
+    for (int i = 0; i < n_nodes; i++) {
         nodes.push_back(new Node(cache_scores));
     }
     node_probabilities.resize(n_nodes);
     // Read labels (events) and fill the nodes with the events
-    bool finished_reading_labels=false;
-    while (!finished_reading_labels){
-        int idx=1;
-        while (idx < line.size() && line[idx]!='[') idx++;
-        if (idx>=line.size() || line[idx+1]!='l') finished_reading_labels=true; //empty line
-        else{
-            int node =  stoi(line.substr(0,idx));
-            while (line[idx]!='<') idx++;
+    bool finished_reading_labels = false;
+    while (!finished_reading_labels) {
+        int idx = 1;
+        while (idx < line.size() && line[idx] != '[') {
             idx++;
-            while (line[idx]==' ') idx++;
-            bool finished_reading_line=false;
-            if (line[idx]=='>') finished_reading_line=true;
-            while (!finished_reading_line){
-                if (line[idx]=='<') idx+=3; // remove <B>
-                if ((line[idx]=='C' && line[idx+2]=='L')){ // CNLOH event
-                    idx+=6;
-                    int idx2 = idx+1;
-                    while (line[idx2]!=':') idx2++;
-                    int region = stoi(line.substr(idx,idx2-idx));
-                    idx2++;
-                    while (line[idx2]!=':') idx2++; // skip region name
-                    idx = idx2+1;
+        }
+        if (idx >= line.size() || line[idx + 1] != 'l') {
+            finished_reading_labels = true; //empty line
+        } else {
+            int node = std::stoi(rtrim(line.substr(0, idx)));
+            while (line[idx] != '<') {
+                idx++;
+            }
+            idx++;
+            while (line[idx] == ' ') {
+                idx++;
+            }
+            bool finished_reading_line = false;
+            if (line[idx] == '>') {
+                finished_reading_line = true;
+            }
+
+            while (!finished_reading_line) {
+                if (line[idx] == '<') {
+                    idx += 3; // remove <B>
+                }
+                if (line[idx] == 'C' && line[idx + 2]=='L') { // CNLOH event
+                    idx += 6;
+                    int idx2 = idx + 1;
+                    while (line[idx2] != ':') {
+                        idx2++;
+                    }
+                    std::string region_name = line.substr(idx, idx2 - idx);
+                    int region_id;
+                    try {
+                        region_id = std::stoi(region_name);
+                    } catch (const std::invalid_argument& e) {
+                        int idx3 = idx + 1;
+                        while (line[idx3] != '(') {
+                            idx3++;
+                        }
+                        region_name = line.substr(idx, idx3 - idx);
+                        if (data.region_to_id.find(region_name) != data.region_to_id.end()) {
+                            region_id = data.region_to_id[region_name];
+                        } else {
+                            std::cout << "\n!WARNING - Node " << node <<
+                                " - Region "<< region_name << " not found in data!\n";
+                            region_id = -1;
+                        }
+                    }
+                    // idx2++;
+                    // while (line[idx2] != ':') {
+                    //     idx2++; // skip region name
+                    // }
+                    idx = idx2 + 1;
                     std::vector<int> lost_alleles{};
-                    while (line[idx]!='<' && line[idx]!='b' && line[idx]!='/'){
-                        if (line[idx]=='0') lost_alleles.push_back(0);
-                        else lost_alleles.push_back(1);
-                        idx+=2;
+                    while (line[idx] != '<' && line[idx] != 'b' && line[idx] != '/') {
+                        if (line[idx] == '0') {
+                            lost_alleles.push_back(0);
+                        } else {
+                            lost_alleles.push_back(1);
+                        }
+                        idx += 2;
                     }
                     idx--;
-                    nodes[node]->add_CNLOH(std::make_pair(region,lost_alleles));
-                }
-                else if ((line[idx]=='L' && line[idx+2]=='O')){ // CNLOH event
-                    idx+=4;
-                    int idx2 = idx+1;
-                    while (line[idx2]!=':') idx2++;
-                    int region = stoi(line.substr(idx,idx2-idx));
-                    idx2++;
-                    while (line[idx2]!=':') idx2++; // skip region name
-                    idx = idx2+1;
+                    if (region_id >= 0) {
+                        nodes[node]->add_CNLOH(std::make_pair(region_id, lost_alleles));
+                    }
+                } else if (line[idx] == 'L' && line[idx + 1] == 'O') { // LOH event; e.g., "LOH AMPL113659(chr17):ALT"
+                    idx += 4;
+                    int idx2 = idx + 1;
+                    while (line[idx2] != ':') {
+                        idx2++;
+                    }
+                    std::string region_name = line.substr(idx, idx2 - idx);
+                    int region_id;
+                    try {
+                        region_id = std::stoi(region_name);
+                    } catch (const std::invalid_argument& e) {
+                        int idx3 = idx + 1;
+                        while (line[idx3] != '(') {
+                            idx3++;
+                        }
+                        region_name = line.substr(idx, idx3 - idx);
+                        if (data.region_to_id.find(region_name) != data.region_to_id.end()) {
+                            region_id = data.region_to_id[region_name];
+                        } else {
+                            std::cout << "\n!WARNING - Node " << node <<
+                                " - Region "<< region_name << " not found in data!\n";
+                            region_id = -1;
+                        }
+                    }
+                    idx = idx2 + 1;
                     std::vector<int> lost_alleles{};
-                    while (line[idx]!='<' && line[idx]!='b' && line[idx]!='/'){
-                        if (line[idx]=='0') lost_alleles.push_back(0);
-                        else lost_alleles.push_back(1);
-                        idx+=2;
+                    while (line[idx] != '<' && line[idx] != 'b' && line[idx] != '/') {
+                        if (line[idx] == '0') {
+                            lost_alleles.push_back(0);
+                            idx += 2;
+                        } else if (line[idx] == '1') {
+                            lost_alleles.push_back(1);
+                            idx += 2;
+                        } else if (line[idx] == 'R') {
+                            lost_alleles.push_back(0);
+                            idx += 4;
+                        } else if (line[idx] == 'A') {
+                            lost_alleles.push_back(1);
+                            idx += 4;
+                        }
                     }
                     idx--;
-                    nodes[node]->add_CNLOH(std::make_pair(region,lost_alleles));
-                }
-                else if (line[idx]=='C' && line[idx+2]=='V'){ // CNV event
-                    int gain_loss=1;
-                    if (line[idx+3]=='-') gain_loss=-1;
-                    idx+=6;
-                    int idx2 = idx+1;
-                    while (line[idx2]!=':') idx2++;
-                    int region =  stoi(line.substr(idx,idx2-idx));
-                    idx = idx2+1;
-                    while (line[idx]!=':') idx++;
-                    std::vector<int>alleles{};
+                    if (region_id >= 0) {
+                        nodes[node]->add_CNLOH(std::make_pair(region_id, lost_alleles));
+                    }
+                } else if (line[idx] == 'C' && line[idx + 2] == 'V') { // CNV event
+                    int gain_loss = 1;
+                    if (line[idx + 3] =='-') {
+                        gain_loss =- 1;
+                    }
+                    idx += 6;
+                    int idx2 = idx + 1;
+                    while (line[idx2] != ':') {
+                        idx2++;
+                    }
+                    int region = std::stoi(line.substr(idx, idx2-idx));
+                    idx = idx2 + 1;
+                    while (line[idx] != ':') {
+                        idx++;
+                    }
+                    std::vector<int> alleles{};
                     idx++;
-                    while (line[idx]!='<' && line[idx]!='b' && line[idx]!='/'){
-                        if (line[idx]=='0') alleles.push_back(0);
-                        else alleles.push_back(1);
-                        idx+=2;
+                    while (line[idx] != '<' && line[idx] != 'b' && line[idx] != '/') {
+                        if (line[idx] == '0') {
+                            alleles.push_back(0);
+                        } else {
+                            alleles.push_back(1);
+                        }
+                        idx += 2;
                     }
                     idx--;
-                    nodes[node]->add_CNV(std::make_tuple(region,gain_loss,alleles));
+                    nodes[node]->add_CNV(std::make_tuple(region, gain_loss, alleles));
+                } else if (strcmp(line.substr(idx, 10).c_str(), "MERGE ROOT") == 0) {
+                    finished_reading_line = true;
+                    // continue;
+                } else { // somatic mutation
+                    int idx2 = idx + 1;
+                    while (line[idx2] != '(') {
+                        idx2++;
+                    }
+                    std::string snv_name = line.substr(idx, idx2 - idx);
+
+                    int locus_id;
+                    std::string locus_str;
+                    try {
+                        locus_id = std::stoi(snv_name);
+                    } catch (const std::invalid_argument& e) {
+                        idx2++;
+                        int idx3 = idx2 + 1;
+                        while (line[idx3] != ')') {
+                            idx3++;
+                        }
+                        locus_str = line.substr(idx2, idx3 - idx2);
+                        if (data.locus_to_id.find(locus_str) != data.locus_to_id.end()) {
+                            locus_id = data.locus_to_id[locus_str];
+                        } else {
+                            std::cout << "\n!WARNING - Node " << node <<
+                                " - Locus "<< locus_str << " not found in data!\n";
+                            locus_id = -1;
+                        }
+                    }
+                    if (locus_id >= 0) {
+                        nodes[node]->add_mutation(locus_id);
+                    }
                 }
-                else{ // somatic mutation
-                    int idx2= idx+1;
-                    while (line[idx2]!=':') idx2++;
-                    int locus =  stoi(line.substr(idx,idx2-idx));
-                    nodes[node]->add_mutation(locus);
+
+                while (line[idx] != '<') {
+                    idx++;
                 }
-                while (line[idx]!='<') idx++;
 
                 //HTML tags: events separated by <br/>
-                if (line[idx+1]=='/') idx+=4; // </B>
-                idx+=5;
-                if (line[idx]=='>') finished_reading_line=true; 
+                if (line[idx + 1] == '/') {
+                    idx += 4; // </B>
+                }
+                idx += 5;
+                if (line[idx] == '>') {
+                    finished_reading_line = true;
+                }
             }
-         } 
-        if (!std::getline (file, line)) finished_reading_labels=true;
-     }
+        }
+        if (!std::getline (file, line)) {
+            finished_reading_labels = true;
+        }
+    }
+    // Close the file
+    file.close();
+
+    // Attach SNV events not attached to any node to the root node
+    if (parameters.verbose) {
+        std::cout << "\n\tNode 0 extra:";
+    }
+    for (int i = 0; i < n_loci; i++) {
+        bool attached = false;
+        for (int j = 0; j < n_nodes; j++) {
+            for (int k: nodes[j]->get_mutations()) {
+                // std::cout << "\nvar " << i << " - node " << j << " - mut " << k <<  ";";
+                if (k == i) {
+                    attached = true;
+                    break;
+                }
+            }
+        }
+        if (attached == false) {
+            if (parameters.verbose) {
+                std::cout << "\n\t\tSNV:chr" << data.locus_to_chromosome[i] << "_" << data.locus_to_position[i] << "; ";
+            }
+            nodes[0]->add_mutation(i);
+        }
+    }
+
+    compute_children();
+    compute_nodes_genotypes();
+
     // Initialize utils
     cells_attach_loglik.resize(n_cells);
     cells_loglik.resize(n_cells);
     cells_attach_prob.resize(n_cells);
     best_attachments.resize(n_cells);
-    use_CNV=false;
-    compute_children();
+
     compute_likelihood(true);
-    if(use_CNV_arg && select_regions()){
-        use_CNV=true;
-        compute_likelihood(true);
-    }
     compute_prior_score();
     update_full_score();
 
-    // Close the file
-    file.close();
+    if (use_CNV && !select_regions()) {
+        use_CNV = false;
+    }
+    if (parameters.verbose) {
+        std::cout << "\nDone - reading starting tree from file" << std::endl;
+    }
 }
 
 
-void Tree::find_CNV(){
+void Tree::find_CNV() {
     //1. Find best attachment point of each cell
     int n_attachment_points = n_nodes;
     double doublet_rate = parameters.doublet_rate;
@@ -1119,65 +1352,78 @@ void Tree::find_CNV(){
     }
 }
 
-bool Tree::select_regions(int index){
+
+bool Tree::select_regions(int index) {
     // Find regions which might contain a CNV event. Return true if it was possible to estimate node regions (if the node contains enough cells), false otherwise.
     candidate_regions.clear();
     region_probabilities.resize(n_regions);
     //  Compute average region probability in each node, and find if there is a difference between some nodes
-    for (int k=0;k<n_regions;k++){
-        if (!data.region_is_reliable[k]) continue;
+    for (int k = 0; k < n_regions; k++) {
+        if (!data.region_is_reliable[k]) {
+            continue;
+        }
         std::vector<std::vector<double>> nodes_regionprobs{};
-        std::vector<double> nodes_averages(n_nodes,0.0);
+        std::vector<double> nodes_averages(n_nodes, 0.0);
         nodes_regionprobs.resize(n_nodes);
-        for (int j=0;j<n_cells;j++){
-            if (best_attachments[j]<n_nodes && best_attachments[j]>=0){
-                nodes_regionprobs[best_attachments[j]].push_back(1.0*cells[j].region_counts[k] / cells[j].total_counts);
+        for (int j = 0; j < n_cells; j++) {
+            if (best_attachments[j] < n_nodes && best_attachments[j] >= 0) {
+                nodes_regionprobs[best_attachments[j]].push_back(1.0 * cells[j].region_counts[k] / cells[j].total_counts);
             }
         }
-        if (nodes_regionprobs[0].size()<std::max(40.0,0.015*n_cells)){
-            if (index >=0) std::cout<<"Chain "<<std::to_string(index)<<": ";
-            std::cout<<"In the tree inferred without CNVs, there were not enough cells attached to the root to estimate the region weights, so COMPASS could not attempt to find CNVs."<<std::endl;
+        if (nodes_regionprobs[0].size() < std::max(40.0, 0.015 * n_cells)) {
+            if (index >= 0) {
+                std::cout << "Chain " << std::to_string(index) << ": ";
+            }
+            std::cout << "In the tree inferred without CNVs, there were not enough cells attached to the root to estimate the region weights, so COMPASS could not attempt to find CNVs." << std::endl;
             return false; // not enough cells attached to the root: cannot find CNVs
         }
         double rootprob=0;
-        for (double prob: nodes_regionprobs[0]){
-            rootprob+= prob / nodes_regionprobs[0].size();
-            if (data.region_to_chromosome[k]!="X" || data.sex=="female") region_probabilities[k] = rootprob;
-            else region_probabilities[k] = rootprob*2; // region probability is defined for diploid
+        for (double prob: nodes_regionprobs[0]) {
+            rootprob += prob / nodes_regionprobs[0].size();
+            if (data.region_to_chromosome[k] != "X" || data.sex == "female") {
+                region_probabilities[k] = rootprob;
+            } else {
+                region_probabilities[k] = rootprob*2; // region probability is defined for diploid
+            }
         }
 
         // Select regions whose probability is different between the root and another node
-        for (int n=1;n<n_nodes;n++){
-            if (nodes_regionprobs[n].size()>=std::max(40.0,0.03*n_cells)){
+        for (int n = 1; n < n_nodes; n++) {
+            if (nodes_regionprobs[n].size() >= std::max(40.0, 0.03*n_cells)) {
                 double prob = 0;
-                for (double d: nodes_regionprobs[n]) prob+= d/nodes_regionprobs[n].size();
-                if ((prob>rootprob*1.275 || rootprob>prob*1.35) && rootprob>0.05/n_regions){
+                for (double d: nodes_regionprobs[n]) {
+                    prob+= d / nodes_regionprobs[n].size();
+                }
+                if ((prob > rootprob * 1.275 || rootprob > prob * 1.35) && rootprob > 0.05 / n_regions) {
                     candidate_regions.push_back(k);
                     break;
                 }
             }
         }
     }
-    if (candidate_regions.size()==0){
-        if (index >=0) std::cout<<"Chain "<<std::to_string(index)<<": ";
-        std::cout<<"In the tree inferred without CNVs, there were no regions whose coverage in one node were different from the root, so COMPASS could not identify any CNVs."<<std::endl;
+    if (candidate_regions.size() == 0) {
+        if (index >= 0) {
+            std::cout << "Chain " << std::to_string(index) << ": ";
+        }
+        std::cout << "In the tree inferred without CNVs, there were no regions whose coverage in one node were different from the root, so COMPASS could not identify any CNVs." << std::endl;
         return false;
     }
 
-
-    regions_successor = std::vector<int>(n_regions,-1);
-    for (int k=0;k<candidate_regions.size()-1;k++){
+    regions_successor = std::vector<int>(n_regions, -1);
+    for (int k = 0; k < candidate_regions.size() - 1; k++) {
         int k1 = candidate_regions[k];
-        int k2 = candidate_regions[k+1];
-        if (data.region_to_chromosome.size()>0 && data.region_to_chromosome[k1] == data.region_to_chromosome[k2]){
-            regions_successor[k1]=k2;
+        int k2 = candidate_regions[k + 1];
+        if (data.region_to_chromosome.size() > 0 && data.region_to_chromosome[k1] == data.region_to_chromosome[k2]) {
+            regions_successor[k1] = k2;
         }
     }
-    if (true || parameters.verbose){
-        if (index >=0) std::cout<<"Chain "<<std::to_string(index)<<": ";
-        std::cout<<"After the first phase (inferring the best tree without CNVs), COMPASS identified the following candidate regions which might contain CNVs: ";
-        for (int i: candidate_regions){
-            std::cout<<data.region_to_name[i]<<",";
+    if (parameters.verbose) {
+        if (index >= 0) {
+            std::cout << "Chain " << std::to_string(index) << ": ";
+        }
+        std::cout << "After the first phase (inferring the best tree without CNVs), COMPASS identified the following candidate regions which might contain CNVs: ";
+        for (int i: candidate_regions) {
+            std::cout << data.region_to_name[i] << ",";
         }
         std::cout<<std::endl;
     }
@@ -1186,7 +1432,7 @@ bool Tree::select_regions(int index){
 }
 
 
-void Tree::add_node(int parent){
+void Tree::add_node(int parent) {
     // Add a new node below an existing one, and randomly reassign the children of the parent node.
     n_nodes++;
     nodes.push_back(new Node(cache_scores));
@@ -1198,7 +1444,8 @@ void Tree::add_node(int parent){
     compute_children();
 }
 
-void Tree::delete_node(int node){
+
+void Tree::delete_node(int node) {
     for (int child: children[node]){
         parents[child] = parents[node];
     }
@@ -1219,7 +1466,7 @@ void Tree::delete_node(int node){
 }
 
 
-void Tree::prune_reattach(){
+void Tree::prune_reattach() {
     // Prune a subtree, and reattach it somewhere else in the tree
 
     if (n_nodes<=1){ // Need at least 2 nodes to be able to prune and reattach.
@@ -1259,7 +1506,8 @@ void Tree::prune_reattach(){
     hastings_ratio=1.0;
 }
 
-void Tree::swap_node_labels(){
+
+void Tree::swap_node_labels() {
     // Select the 2 nodes and copy the nodes below them
     if (n_nodes<=1){
         hastings_ratio=0.0;
@@ -1276,7 +1524,8 @@ void Tree::swap_node_labels(){
     hastings_ratio=1.0;
 }
 
-/*void Tree::add_remove_mutation(){
+
+/*void Tree::add_remove_mutation() {
     // Find nodes with mutations
     std::vector<int> nodes_with_mut{};
     for (int i=0;i<n_nodes;i++){
@@ -1323,12 +1572,14 @@ void Tree::swap_node_labels(){
 
 }*/
 
-void Tree::move_mutation(){
 
+void Tree::move_mutation() {
     // sample the source node (from which the event will be moved) among the nodes which have at least one mutation.
     std::vector<int> nodes_with_event{};
-    for (int i=0;i<n_nodes;i++){
-        if (nodes[i]->get_number_mutations()>0) nodes_with_event.push_back(i);
+    for (int i = 0; i < n_nodes; i++) {
+        if (nodes[i]->get_number_mutations() > 0) {
+            nodes_with_event.push_back(i);
+        }
     }
     int initial_nb_nodes_with_events = nodes_with_event.size();
     int new_nb_nodes_with_events = initial_nb_nodes_with_events;
@@ -1377,7 +1628,8 @@ void Tree::move_mutation(){
     hastings_ratio*= 1.0/new_nb_nodes_with_events / nodes[destination_node]->get_number_mutations();
 }
 
-void Tree::split_merge_node(){
+
+void Tree::split_merge_node() {
     double default_merge_probability = 0.20;
     double merge_probability = default_merge_probability;
     if (n_nodes<=1) merge_probability =0.0; //cannot merge nodes if there is only one node.
@@ -1452,8 +1704,7 @@ void Tree::split_merge_node(){
 }
 
 
-
-void Tree::add_remove_CNLOH(){
+void Tree::add_remove_CNLOH() {
     double default_add_probability=0.80;
     double add_probability = default_add_probability;
     // Find nodes which have loh events
@@ -1513,7 +1764,8 @@ void Tree::add_remove_CNLOH(){
     }
 }
 
-void Tree::move_CNLOH(){
+
+void Tree::move_CNLOH() {
     // sample the source node (from which the event will be moved) among the nodes which have at least one CNV event.
     std::vector<int> nodes_with_event{};
     for (int i=0;i<n_nodes;i++){
@@ -1566,7 +1818,7 @@ void Tree::move_CNLOH(){
 }
 
 
-void Tree::add_remove_CNV(){
+void Tree::add_remove_CNV() {
     double default_add_probability=0.70;
     double add_probability = default_add_probability;
     
@@ -1634,7 +1886,7 @@ void Tree::add_remove_CNV(){
 }
 
 
-void Tree::move_CNV(){
+void Tree::move_CNV() {
     // sample the source node (from which the event will be moved) among the nodes which have at least one CNV event.
     std::vector<int> nodes_with_event{};
     for (int i=0;i<n_nodes;i++){
@@ -1687,7 +1939,8 @@ void Tree::move_CNV(){
     hastings_ratio*= 1.0/new_nb_nodes_with_events / nodes[destination_node]->get_number_CNV();
 }
 
-void Tree::merge_or_duplicate_CNV(){
+
+void Tree::merge_or_duplicate_CNV() {
     // If there are two indentical CNVs in the tree, can merge them into one CNV at their most recent common ancestor
     // If one node containing a CNV has multiple children, can duplicate this CNV and place both copies in parallel branches.
 
@@ -1862,7 +2115,8 @@ void Tree::merge_or_duplicate_CNV(){
     }
 }
 
-void Tree::exchange_CNV_CNLOH(){
+
+void Tree::exchange_CNV_CNLOH() {
     std::vector<int> nodes_with_event{};
     for (int i=0;i<n_nodes;i++){
         if (nodes[i]->get_number_CN_losses()>0 || nodes[i]->get_number_CNLOH()>0) nodes_with_event.push_back(i);
@@ -1874,7 +2128,8 @@ void Tree::exchange_CNV_CNLOH(){
     }
 }
 
-void Tree::change_alleles_CNV(){
+
+void Tree::change_alleles_CNV() {
     hastings_ratio=1.0;
     std::vector<int> nodes_with_event{};
     for (int i=0;i<n_nodes;i++){
@@ -1887,7 +2142,8 @@ void Tree::change_alleles_CNV(){
     }
 }
 
-double Tree::get_regionprobs_variance(){
+
+double Tree::get_regionprobs_variance() {
     double mean = 0;
     int n_reliable_regions=0;
     for (int k=0;k<n_regions;k++){

@@ -1,9 +1,12 @@
 CXX	= g++
 CXXFLAGS = -std=c++11 -O2
-
+GDBFLAG = '-g'
 
 COMPASS: COMPASS.o Scores.o Node.o Tree.o Inference.o input.o
 	${CXX} ${CXXFLAGS} -fopenmp -o COMPASS COMPASS.o Scores.o Node.o Tree.o Inference.o input.o
+
+COMPASS.gdb: COMPASS.cpp Inference.h Tree.h input.h Scores.h Structures.h
+	${CXX} ${CXXFLAGS} ${GDBFLAG} -fopenmp -o COMPASS COMPASS.o Scores.o Node.o Tree.o Inference.o input.o
 
 
 COMPASS.o: COMPASS.cpp Inference.h Tree.h input.h Scores.h Structures.h

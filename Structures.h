@@ -4,7 +4,7 @@
 #include <map>
 
 
-struct Cell{
+struct Cell {
     std::vector<int> ref_counts; // number of ref reads for each variable locus
     std::vector<int> alt_counts; // number of alt reads for each variable locus
     std::vector<int> region_counts; // number of reads in each region
@@ -14,8 +14,9 @@ struct Cell{
     int total_counts; // sum of the read counts in each region
 };
 
-struct Data{
+struct Data {
     std::string sex; // "male" (1 chr X) or "female" (2 chr X)
+    std::string start_tree; // "male" (1 chr X) or "female" (2 chr X)
     std::vector<std::string> locus_to_chromosome;
     std::vector<int> locus_to_position;
     std::vector<std::string> locus_to_reference;
@@ -24,15 +25,16 @@ struct Data{
     std::vector<double> locus_to_freq; // frequency of the variant in the population
     std::vector<std::string> locus_to_name; //name of the variant, which describes the effect on the protein (if any)
     std::vector<int> locus_to_region;
+    std::map<std::string, int> locus_to_id;
+    std::map<std::string, int> region_to_id;
     
     std::vector<std::vector<int>> region_to_loci; //list of loci on this amplicon (possibly empty)
     std::vector<std::string> region_to_chromosome;
     std::vector<std::string> region_to_name;
     std::vector<bool> region_is_reliable; // true for the amplicons that are used for computing the CNV score.
-
 };
 
-struct Params{
+struct Params {
     double sequencing_error_rate;
     double omega_hom; //concentration parameter for beta-binomial in the SNV likelihood, when homozygous
     double omega_het; //concentration parameter for beta-binomial in the SNV likelihood, when heterozygous

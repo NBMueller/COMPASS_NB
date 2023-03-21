@@ -29,21 +29,46 @@ Scores::Scores(){
     std::map<int,std::map<long int,std::vector<double>>> cache_dropoutrate_dropoutsref{};
     std::map<int,std::map<long int,std::vector<double>>> cache_dropoutrate_dropoutsalt{};
     std::map<int,double> cache_n_choose_k{};
-    count_cache=0;
+    count_cache = 0;
 }
 
 double Scores::log_sum_exp(const std::vector<double>& terms){
     double max = -DBL_MAX;
-    for (int i=0;i<terms.size();i++){
-        if (terms[i]>max) max=terms[i];
+    for (int i = 0; i < terms.size(); i++) {
+        if (terms[i] > max) {
+            max = terms[i];
+        }
     }
-
-    double sum=0;
-    for (int i=0;i<terms.size();i++){
-        sum+= std::exp(terms[i]-max);
+    double sum = 0;
+    for (int i = 0; i < terms.size(); i++) {
+        sum += std::exp(terms[i] - max);
     }
     return std::log(sum) + max;
 }
+
+
+std::vector<double> Scores::normalize_log(const std::vector<double>& terms){
+    double max = -DBL_MAX;
+    for (int i = 0; i < terms.size(); i++) {
+        if (terms[i] > max) {
+            max = terms[i];
+        }
+    }
+
+    std::vector<double> norm(terms.size(), 0);
+    double sum = 0;
+    for (int i = 0; i < terms.size(); i++) {
+        norm[i] = std::exp(terms[i] - max);
+        sum += norm[i];
+    }
+
+    for (int i = 0; i < terms.size(); i++) {
+        norm[i] /= sum;
+    }
+
+    return norm;
+}
+
 
 std::vector<double> Scores::log_sum_exp_vector(const std::vector<std::vector<double>>& terms){
     std::vector<double> maxs(n_cells,-DBL_MAX);

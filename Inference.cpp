@@ -23,7 +23,7 @@ Inference::Inference(std::string name, double temperature, int index):
         index(index)
     {
     if (parameters.verbose) {
-        std::cout << "\nInit Inference without starting tree";
+        std::cout << "\nInit Inference without starting tree" << std::endl;
     }
     // Weight of each MCMC move (does not have to be normalized)
     move_weights = {
@@ -53,7 +53,7 @@ Inference::Inference(std::string start_tree, std::string name, double temperatur
         index(index)
     {
     if (parameters.verbose) {
-        std::cout << "Init Inference with starting tree";
+        std::cout << "Init Inference with starting tree" << std::endl;
     }
     // Weight of each MCMC move (does not have to be normalized)
     move_weights = {

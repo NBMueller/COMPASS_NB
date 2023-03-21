@@ -23,10 +23,10 @@ class Scores{
         Scores();
         double log_n_choose_k(int n, int k);
         static double log_sum_exp(const std::vector<double>& terms); //performs a robust log_sum_exp (ie sum exp(x-max) for better precision)
+        static std::vector<double> normalize_log(const std::vector<double>& terms); // normalize a log-likelihood vector and return in normal space (sum = 1)
         static std::vector<double> log_sum_exp_vector(const std::vector<std::vector<double>>& terms);
         //static double compute_SNV_loglikelihood(int c_ref,int c_alt, int ref_count, int alt_count, double eps, double omega,double mu);
         std::vector<double> compute_SNV_loglikelihoods(int c_ref,int c_alt, int locus, double dropout_rate_ref, double dropout_rate_alt);
-
 
         std::vector<double> compute_CNV_loglikelihoods(int region, double region_probability);
 

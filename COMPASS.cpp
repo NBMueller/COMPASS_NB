@@ -52,6 +52,8 @@ int main(int argc, char* argv[]) {
             output = argv[i+1];
         } else if (strcmp(argv[i], "-d") == 0 && strcmp(argv[i+1], "0") == 0) {
             parameters.use_doublets = false;
+        } else if (strcmp(argv[i], "--doubletrate") == 0) {
+            parameters.doublet_rate = atoi(argv[i+1]);
         } else if (strcmp(argv[i], "--CNV") == 0 && strcmp(argv[i+1], "0") == 0) {
             use_CNV = false;
         } else if (strcmp(argv[i], "--filterregions") == 0 && strcmp(argv[i+1], "0") == 0) {
@@ -107,6 +109,7 @@ int main(int argc, char* argv[]) {
         } else {
             chains[0] = Inference{"", temperature, 0};
         }
+        std::cout << "MCMC - running" << std::endl;
         best_trees[0] = chains[0].find_best_tree(use_CNV, chain_length, burn_in);
         std::cout << "MCMC - done" << std::endl;
         results[0] = best_trees[0].log_score;
